@@ -19,19 +19,103 @@ define([
     // XML template file internal ID
     const TEMPLATE_FILE_ID = 33686;
 
-    // Employee internal ID used as the email sender
+    // Employee internal ID used as email sender
     const SENDER_ID = 9710;
 
-    // Task fields
+    // Task conditions
     const STATUS_FIELD_ID = 'status';
-    const STATUS_SUBMITTED_VALUE = 'COMPLETE';
-    const SIGNATURE_FIELD_ID = 'custevent_nx_customer_signature';
+    const COMPLETE_STATUS = 'COMPLETE';
+    const CUSTOMER_SIGNATURE_FIELD =
+        'custevent_nx_customer_signature';
 
-    // Customer email field — currently not used during testing
-    const CUSTOMER_EMAIL_FIELD_ID = 'custevent_bc_fsm_cust_email';
+    // Currently not used during testing
+    const CUSTOMER_EMAIL_FIELD =
+        'custevent_bc_fsm_cust_email';
 
     // Testing recipient
-    const TEST_EMAIL = 'dhruv.soni@bluecollar.cloud';
+    const TEST_EMAIL =
+        'dhruv.soni@bluecollar.cloud';
+
+    /**
+     * Safely gets a field value.
+     */
+    const getValue = (rec, fieldId) => {
+        try {
+            const value = rec.getValue({
+                fieldId: fieldId
+            });
+
+            if (value === null || value === undefined) {
+                return '';
+            }
+
+            return value;
+
+        } catch (e) {
+            return '';
+        }
+    };
+
+    /**
+     * Safely gets a field's displayed text.
+     */
+    const getText = (rec, fieldId) => {
+        try {
+            const value = rec.getText({
+                fieldId: fieldId
+            });
+
+            if (value === null || value === undefined) {
+                return '';
+            }
+
+            return value;
+
+        } catch (e) {
+            return '';
+        }
+    };
+
+    /**
+     * Gets displayed text first, otherwise gets the raw value.
+     */
+    const getTextOrValue = (rec, fieldId) => {
+        const text = getText(rec, fieldId);
+
+        if (text !== '') {
+            return text;
+        }
+
+        return getValue(rec, fieldId);
+    };
+
+    /**
+     * Returns the first populated value.
+     */
+    const firstValue = (values) => {
+        for (let i = 0; i < values.length; i++) {
+            if (
+                values[i] !== null &&
+                values[i] !== undefined &&
+                values[i] !== ''
+            ) {
+                return values[i];
+            }
+        }
+
+        return '';
+    };
+
+    /**
+     * Add a JavaScript object to the XML template.
+     */
+    const addObjectSource = (renderer, alias, data) => {
+        renderer.addCustomDataSource({
+            format: render.DataSource.OBJECT,
+            alias: alias,
+            data: data
+        });
+    };
 
     const afterSubmit = (context) => {
         try {
@@ -48,16 +132,17 @@ define([
             if (!taskId) {
                 log.error({
                     title: 'Missing Task ID',
-                    details: 'Task internal ID was not available.'
+                    details: 'Task ID was not available.'
                 });
+
                 return;
             }
 
             /*
-             * Load the full Task record.
+             * Load the complete Task record.
              *
-             * This is required because an XEDIT event may only contain
-             * the fields that were changed.
+             * This is especially important for XEDIT because
+             * context.newRecord may only contain changed fields.
              */
             const taskRec = record.load({
                 type: record.Type.TASK,
@@ -65,46 +150,47 @@ define([
                 isDynamic: false
             });
 
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
             // Condition 1: Task must be Complete
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
 
-            const taskStatus = taskRec.getValue({
-                fieldId: STATUS_FIELD_ID
-            });
+            const taskStatus = getValue(
+                taskRec,
+                STATUS_FIELD_ID
+            );
 
             log.debug({
                 title: 'Task Status Check',
                 details: {
                     taskId: taskId,
                     currentStatus: taskStatus,
-                    requiredStatus: STATUS_SUBMITTED_VALUE
+                    requiredStatus: COMPLETE_STATUS
                 }
             });
 
-            if (taskStatus !== STATUS_SUBMITTED_VALUE) {
+            if (taskStatus !== COMPLETE_STATUS) {
                 log.debug({
                     title: 'Skipped - Task Not Complete',
                     details:
                         'Task ' + taskId +
-                        ' status is "' + taskStatus +
-                        '", not "' + STATUS_SUBMITTED_VALUE + '".'
+                        ' status is "' + taskStatus + '".'
                 });
 
                 return;
             }
 
-            // -------------------------------------------------------------
-            // Condition 2: Customer signature must be populated
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
+            // Condition 2: Customer signature must exist
+            // ---------------------------------------------------------
 
-            const customerSignature = taskRec.getValue({
-                fieldId: SIGNATURE_FIELD_ID
-            });
+            const customerSignature = getValue(
+                taskRec,
+                CUSTOMER_SIGNATURE_FIELD
+            );
 
             if (!customerSignature) {
                 log.debug({
-                    title: 'Skipped - Customer Signature Missing',
+                    title: 'Skipped - Signature Missing',
                     details:
                         'Task ' + taskId +
                         ' does not have a customer signature.'
@@ -113,18 +199,19 @@ define([
                 return;
             }
 
-            // -------------------------------------------------------------
-            // Customer email condition — commented out for testing
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
+            // Customer email logic - commented out for testing
+            // ---------------------------------------------------------
 
             /*
-            const reportEmail = taskRec.getValue({
-                fieldId: CUSTOMER_EMAIL_FIELD_ID
-            });
+            const reportEmail = getValue(
+                taskRec,
+                CUSTOMER_EMAIL_FIELD
+            );
 
             if (!reportEmail) {
                 log.debug({
-                    title: 'Skipped - Customer Email Missing',
+                    title: 'Skipped - Email Missing',
                     details:
                         'Task ' + taskId +
                         ' does not have a customer email.'
@@ -134,24 +221,342 @@ define([
             }
             */
 
-            // Testing recipient
+            // Testing email only
             const reportEmail = TEST_EMAIL;
 
-            // -------------------------------------------------------------
-            // Load the XML template
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
+            // Read Task data
+            // ---------------------------------------------------------
+
+            const taskNumber = firstValue([
+                getTextOrValue(
+                    taskRec,
+                    'custevent_nx_task_number'
+                ),
+                String(taskId)
+            ]);
+
+            const taskTitle = getTextOrValue(
+                taskRec,
+                'title'
+            );
+
+            const companyId = getValue(
+                taskRec,
+                'company'
+            );
+
+            const companyName = getTextOrValue(
+                taskRec,
+                'company'
+            );
+
+            const customerId = getValue(
+                taskRec,
+                'custevent_nx_customer'
+            );
+
+            const customerName = getTextOrValue(
+                taskRec,
+                'custevent_nx_customer_name'
+            );
+
+            const technicianName = getTextOrValue(
+                taskRec,
+                'custevent_bc_fsm_tech_name'
+            );
+
+            const technicianSignature = getValue(
+                taskRec,
+                'custevent_nx_technician_signature'
+            );
+
+            const address = getTextOrValue(
+                taskRec,
+                'custevent_nx_address'
+            );
+
+            const assetId = getValue(
+                taskRec,
+                'custevent_nx_task_asset'
+            );
+
+            const assetName = getTextOrValue(
+                taskRec,
+                'custevent_nx_task_asset'
+            );
+
+            const taskTypeId = getValue(
+                taskRec,
+                'custevent_nx_task_type'
+            );
+
+            const taskTypeName = getTextOrValue(
+                taskRec,
+                'custevent_nx_task_type'
+            );
+
+            const serviceDate = firstValue([
+                getTextOrValue(
+                    taskRec,
+                    'custevent_nx_start_date'
+                ),
+                getTextOrValue(
+                    taskRec,
+                    'calendardate'
+                ),
+                getTextOrValue(
+                    taskRec,
+                    'startdate'
+                )
+            ]);
+
+            const serviceTime = firstValue([
+                getTextOrValue(
+                    taskRec,
+                    'custevent_nx_start_time'
+                ),
+                getTextOrValue(
+                    taskRec,
+                    'starttime'
+                )
+            ]);
+
+            const serviceEndDate = firstValue([
+                getTextOrValue(
+                    taskRec,
+                    'custevent_nx_end_date'
+                ),
+                getTextOrValue(
+                    taskRec,
+                    'enddate'
+                )
+            ]);
+
+            const serviceEndTime = firstValue([
+                getTextOrValue(
+                    taskRec,
+                    'custevent_nx_end_time'
+                ),
+                getTextOrValue(
+                    taskRec,
+                    'endtime'
+                )
+            ]);
+
+            const assignedEmployeeId = getValue(
+                taskRec,
+                'assigned'
+            );
+
+            const assignedEmployeeName = getTextOrValue(
+                taskRec,
+                'assigned'
+            );
+
+            // ---------------------------------------------------------
+            // Main Task mapping
+            // ---------------------------------------------------------
+
+            const taskData = {
+                id: String(taskId),
+                internalid: String(taskId),
+                type: 'task',
+
+                title: taskTitle,
+                status: taskStatus,
+
+                tasknumber: taskNumber,
+                custevent_nx_task_number: taskNumber,
+
+                company: companyName,
+                companyid: String(companyId || ''),
+
+                assigned: assignedEmployeeName,
+                assignedid: String(assignedEmployeeId || ''),
+
+                calendardate: serviceDate,
+                startdate: serviceDate,
+                starttime: serviceTime,
+                enddate: serviceEndDate,
+                endtime: serviceEndTime,
+
+                custevent_nx_start_date: serviceDate,
+                custevent_nx_start_time: serviceTime,
+                custevent_nx_end_date: serviceEndDate,
+                custevent_nx_end_time: serviceEndTime,
+
+                custevent_nx_address: address,
+
+                custevent_nx_customer:
+                    String(customerId || ''),
+
+                custevent_nx_customer_name:
+                    customerName,
+
+                custevent_bc_fsm_tech_name:
+                    technicianName,
+
+                custevent_nx_task_asset:
+                    assetName,
+
+                custevent_nx_task_asset_id:
+                    String(assetId || ''),
+
+                custevent_nx_task_type:
+                    taskTypeName,
+
+                custevent_nx_task_type_id:
+                    String(taskTypeId || ''),
+
+                custevent_nx_customer_signature:
+                    customerSignature,
+
+                custevent_nx_technician_signature:
+                    technicianSignature
+            };
+
+            /*
+             * The template references values such as:
+             *
+             * ${case.casenumber}
+             * ${case.contact.entityid}
+             * ${case.custevent_nx_customer.companyname}
+             * ${case.company}
+             *
+             * We are not loading the Support Case.
+             * Instead, Task data is mapped into the "case" alias.
+             */
+            const caseData = {
+                id: String(taskId),
+
+                // Show Task number where XML expects case number
+                casenumber: taskNumber,
+
+                company: companyName,
+
+                contact: {
+                    entityid: customerName
+                },
+
+                custevent_nx_customer: {
+                    id: String(customerId || ''),
+                    companyname: companyName
+                },
+
+                custevent_bc_fsm_tech_name:
+                    technicianName,
+
+                custevent_nx_customer_name:
+                    customerName,
+
+                custevent_nx_address:
+                    address,
+
+                custevent_nx_task_asset:
+                    assetName,
+
+                custevent_nx_task_type:
+                    taskTypeName,
+
+                custevent_nx_technician_signature:
+                    technicianSignature,
+
+                custevent_nx_customer_signature:
+                    customerSignature
+            };
+
+            /*
+             * The XML references:
+             *
+             * ${serviceOrder.custbody_bc_arrival_time}
+             */
+            const serviceOrderData = {
+                id: String(taskId),
+
+                tranid: taskNumber,
+                title: taskTitle,
+
+                trandate: serviceDate,
+                serviceDate: serviceDate,
+                serviceTime: serviceTime,
+
+                startdate: serviceDate,
+                starttime: serviceTime,
+                enddate: serviceEndDate,
+                endtime: serviceEndTime,
+
+                custbody_bc_arrival_time:
+                    serviceTime,
+
+                technician:
+                    technicianName,
+
+                customer:
+                    customerName,
+
+                company:
+                    companyName,
+
+                address:
+                    address,
+
+                asset:
+                    assetName,
+
+                tasktype:
+                    taskTypeName
+            };
+
+            /*
+             * The XML also uses dynamic record references such as:
+             *
+             * ${record[field.inlineimage]}
+             * ${record[field.image]}
+             *
+             * Give it the same Task mapping under "record".
+             */
+            const recordData = Object.assign(
+                {},
+                taskData
+            );
+
+            log.debug({
+                title: 'Mapped Task Service Report Data',
+                details: {
+                    taskId: taskId,
+                    taskNumber: taskNumber,
+                    companyName: companyName,
+                    customerName: customerName,
+                    technicianName: technicianName,
+                    address: address,
+                    assetName: assetName,
+                    taskTypeName: taskTypeName,
+                    serviceDate: serviceDate,
+                    serviceTime: serviceTime,
+                    technicianSignaturePopulated:
+                        Boolean(technicianSignature),
+                    customerSignaturePopulated:
+                        Boolean(customerSignature)
+                }
+            });
+
+            // ---------------------------------------------------------
+            // Load XML template
+            // ---------------------------------------------------------
 
             const templateFile = file.load({
                 id: TEMPLATE_FILE_ID
             });
 
-            const templateContent = templateFile.getContents();
+            const templateContent =
+                templateFile.getContents();
 
             if (!templateContent) {
                 log.error({
                     title: 'Empty XML Template',
                     details:
-                        'XML template file ' +
+                        'Template file ' +
                         TEMPLATE_FILE_ID +
                         ' is empty.'
                 });
@@ -159,105 +564,144 @@ define([
                 return;
             }
 
-            log.debug({
-                title: 'Task Data for Service Report',
-                details: {
-                    taskId: taskId,
-
-                    title: taskRec.getValue({
-                        fieldId: 'title'
-                    }),
-
-                    status: taskStatus,
-
-                    technicianName: taskRec.getValue({
-                        fieldId: 'custevent_bc_fsm_tech_name'
-                    }),
-
-                    customerName: taskRec.getValue({
-                        fieldId: 'custevent_nx_customer_name'
-                    }),
-
-                    technicianSignaturePopulated: Boolean(
-                        taskRec.getValue({
-                            fieldId: 'custevent_nx_technician_signature'
-                        })
-                    ),
-
-                    customerSignaturePopulated: Boolean(
-                        customerSignature
-                    )
-                }
-            });
-
-            // -------------------------------------------------------------
-            // Create the Task Service Report PDF
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
+            // Create renderer and add all mappings
+            // ---------------------------------------------------------
 
             const renderer = render.create();
 
-            renderer.templateContent = templateContent;
+            renderer.templateContent =
+                templateContent;
+
+            addObjectSource(
+                renderer,
+                'task',
+                taskData
+            );
+
+            addObjectSource(
+                renderer,
+                'case',
+                caseData
+            );
+
+            addObjectSource(
+                renderer,
+                'serviceOrder',
+                serviceOrderData
+            );
+
+            addObjectSource(
+                renderer,
+                'record',
+                recordData
+            );
 
             /*
-             * The XML contains fields such as:
+             * First render the FreeMarker template into final XML.
              *
-             * ${task.custevent_bc_fsm_tech_name}
-             * ${task.custevent_nx_customer_name}
-             * ${task.custevent_nx_customer_signature}
-             *
-             * Therefore, load the Task under the "task" alias.
+             * This lets the log confirm that the Task values were
+             * inserted before the XML is converted to PDF.
              */
-            renderer.addRecord({
-                templateName: 'task',
-                record: taskRec
+            const renderedXml =
+                renderer.renderAsString();
+
+            if (!renderedXml) {
+                log.error({
+                    title: 'Rendered XML Is Empty',
+                    details:
+                        'The template did not produce XML.'
+                });
+
+                return;
+            }
+
+            log.audit({
+                title: 'Rendered XML Validation',
+                details: {
+                    taskId: taskId,
+
+                    xmlLength:
+                        renderedXml.length,
+
+                    containsTaskNumber:
+                        renderedXml.indexOf(
+                            String(taskNumber)
+                        ) !== -1,
+
+                    containsCustomer:
+                        customerName
+                            ? renderedXml.indexOf(
+                                customerName
+                            ) !== -1
+                            : false,
+
+                    containsTechnician:
+                        technicianName
+                            ? renderedXml.indexOf(
+                                technicianName
+                            ) !== -1
+                            : false,
+
+                    containsAddress:
+                        address
+                            ? renderedXml.indexOf(
+                                '481 GRAND AVENUE'
+                            ) !== -1
+                            : false,
+
+                    containsSignatureImage:
+                        renderedXml.indexOf(
+                            'data:image/png;base64'
+                        ) !== -1
+                }
             });
 
-            /*
-             * The XML also contains dynamic references such as:
-             *
-             * ${record[field.inlineimage]}
-             * ${record[field.image]}
-             *
-             * Therefore, the same Task must also be available under
-             * the "record" alias.
-             */
-            renderer.addRecord({
-                templateName: 'record',
-                record: taskRec
-            });
+            // ---------------------------------------------------------
+            // Convert rendered XML into PDF
+            // ---------------------------------------------------------
 
-            const pdfFile = renderer.renderAsPdf();
+            const pdfFile = render.xmlToPdf({
+                xmlString: renderedXml
+            });
 
             pdfFile.name =
-                'Task_Service_Report_' + taskId + '.pdf';
+                'Task_Service_Report_' +
+                taskNumber +
+                '.pdf';
 
             log.audit({
                 title: 'Task Service Report Generated',
                 details: {
                     taskId: taskId,
-                    templateFileId: TEMPLATE_FILE_ID,
+                    taskNumber: taskNumber,
+                    templateFileId:
+                        TEMPLATE_FILE_ID,
                     pdfName: pdfFile.name,
                     pdfSize: pdfFile.size
                 }
             });
 
-            // -------------------------------------------------------------
-            // Send email with PDF attachment
-            // -------------------------------------------------------------
+            // ---------------------------------------------------------
+            // Send PDF to hardcoded testing email
+            // ---------------------------------------------------------
 
             email.send({
                 author: SENDER_ID,
+
                 recipients: reportEmail,
 
                 subject:
-                    'Task Service Report - Task #' + taskId,
+                    'Task Service Report - Task #' +
+                    taskNumber,
 
                 body:
                     'Hi,\n\n' +
-                    'Please find attached the service report for Task #' +
-                    taskId + '.\n\n' +
-                    'The report was generated automatically after the ' +
-                    'task was completed and the customer signature was captured.\n\n' +
+                    'Please find attached the service report ' +
+                    'for Task #' + taskNumber + '.\n\n' +
+                    'The report was generated automatically ' +
+                    'after the Task was completed and the ' +
+                    'customer signature was captured.\n\n' +
                     'Thank you.',
 
                 attachments: [
@@ -265,10 +709,10 @@ define([
                 ]
 
                 /*
-                 * No relatedRecords property.
+                 * No relatedRecords.
                  *
-                 * The email is not explicitly attached to the Case,
-                 * Task, Employee, Customer, or any other record.
+                 * The email will not be attached to the
+                 * Task, Case, Employee, or Customer record.
                  */
             });
 
@@ -276,6 +720,7 @@ define([
                 title: 'Task Service Report Sent',
                 details: {
                     taskId: taskId,
+                    taskNumber: taskNumber,
                     recipient: reportEmail,
                     senderEmployeeId: SENDER_ID,
                     pdfName: pdfFile.name,
@@ -288,7 +733,8 @@ define([
                 title: 'Task Service Report Error',
                 details: {
                     name: e.name || '',
-                    message: e.message || String(e),
+                    message:
+                        e.message || String(e),
                     stack: e.stack || ''
                 }
             });
