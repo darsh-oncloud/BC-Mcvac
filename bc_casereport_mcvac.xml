@@ -1,0 +1,946 @@
+<?xml version="1.0"?>
+<!DOCTYPE pdf PUBLIC "-//big.faceless.org//report" "report-1.1.dtd">
+<pdf>
+	<head>
+		<style type="text/css">
+			<#assign primaryColor = "#3C3C3C" />
+			<#assign secondaryColor = "#606060" />
+			
+			#page1 {
+				header: header;
+				header-height: 96pt;
+			}
+
+			body {
+				footer: footer;
+				footer-height: 10pt;
+				margin: 32pt;
+				padding: 0;
+				color: #606060;
+			}
+
+			td, p {
+				font-family: sans-serif;
+				font-size: 8pt;
+			}
+
+			table {
+				width: 100%;
+				table-layout: fixed;
+			}
+			table, tr, td, hr, p{
+				margin: 0;
+				padding: 0;
+			}
+
+			.uppercase {
+				text-transform: uppercase;
+			}
+
+			h1 {
+				color: ${primaryColor};
+				font-family: sans-serif;
+				font-size: 20pt;
+				font-weight: bold;
+				font-style: normal;
+				text-transform: uppercase;
+				letter-spacing: -0.22pt;
+				line-height: 24pt;
+				margin: 3.5pt 0 3.5pt 0;
+				page-break-after: avoid;
+			}
+
+			h2 {
+				color: #000000;
+				font-family: sans-serif;
+				font-size: 12pt;
+				font-style: normal;
+				text-transform: uppercase;
+				letter-spacing: 0;
+				line-height: 16pt;
+				margin: 12pt 0 8pt 0;
+				page-break-after: avoid;
+			}
+
+			h3 {
+				width: 100%;
+				color: #000000;
+				font-family: sans-serif;
+				font-size: 10pt;
+				font-weight: bold;
+				font-style: normal;
+				text-transform: uppercase;
+				letter-spacing: 0;
+				line-height: 14pt;
+				padding: 3pt 0 3pt 0;
+				border-bottom: 0.5pt solid #C2C2C2;
+				margin: 0 0 12pt 0;
+				page-break-after: avoid;
+			}
+
+			h4 {
+				color: #000000;
+				font-family: sans-serif;
+				font-size: 10pt;
+				font-style: normal;
+				font-weight: regular;
+				text-transform: uppercase;
+				letter-spacing: 0;
+				line-height: 14pt;
+				margin: 0pt 0 1pt 0;
+				page-break-after: avoid;
+			}
+
+			p.h5 {
+				color: #444444;
+				font-family: sans-serif;
+				font-size: 10pt;
+				font-weight: 500;
+				font-style: normal;
+				letter-spacing: 0;
+				line-height: 13pt;
+				margin: 0pt 0pt 8pt 0pt;
+				page-break-after: avoid;
+			}
+
+			td p {
+				align: left;
+			}
+
+			td, tr, table, body {
+				bordera: 0.3pt solid black;
+			}
+
+			p.largep {
+				margin: 0 0 12pt 0;
+			}
+
+			.main_section {
+				margin: 0pt 0pt 24pt 0pt;
+			}
+			.minor_section {
+				margin: 0pt 0pt 12pt 0pt;
+			}
+
+			table.details {
+				margin: 0 0 12pt 0;
+			}
+			h3.details {
+				margin: 0 0 3pt 0;
+			}
+			table.details td {
+				padding: 2pt 0 2pt 0;
+			}
+			table.details td.label {
+				font-family: sans-serif;
+				color: ${primaryColor};
+				font-size: 8px;
+				font-weight: 500;
+				letter-spacing: 0;
+				line-height: 12px;
+			}
+
+			table.list {
+				margin: 0 0 12pt 0;
+			}
+			table.list th {
+				padding-top: 5pt;
+				padding-bottom: 5pt;
+				padding-left: 8pt;
+				background-color: ${secondaryColor};
+				font-weight: bold;
+				color: #FFFFFF;
+			}
+			table.list td {
+				padding-top: 4pt;
+				padding-bottom: 4pt;
+				padding-left: 8pt;
+				border-bottom: 0.5pt solid #DEDEDE;
+				border-top: 0.5pt solid #DEDEDE;
+				vertical-align: middle;
+			}
+			table.list td.odd {
+				background-color: #F5F5F5;
+			}
+			th.gap, td.gap {
+				background-color: #FFFFFF !important;
+				color: #FFFFFF !important;
+				border-style: none;
+			}
+
+			table.images tr.caption-row {
+				margin: 0 0 24pt 0;
+			}
+			table.images tr.image-row {
+				margin: 0 0 8pt 0;
+				page-break-after: avoid;
+			}
+			table.images td.image-caption {
+				color: ${primaryColor};
+				font-family: sans-serif;
+				font-weight: 500;
+				font-size: 10pt;
+				line-height: 14pt;
+				letter-spacing: 0;
+			}
+			table.images td.image-box {
+				align: center;
+				vertical-align: middle;
+				box-sizing: border-box;
+				height: 202pt;
+				width: 252pt;
+				border: 1pt solid #C2C2C2;
+				background-color: #F5F5F5;
+			}
+
+			table.signatures img {
+				width: 176pt;
+				height: 58pt;
+			}
+
+			#header_heading hr {
+				height: 3pt;
+				width: 100%;
+				background-color: ${primaryColor};
+			}
+			
+			#logo {
+				width: ${getLogoWidth()}pt;
+				height: ${getLogoHeight()}pt;
+				padding: 0;
+				margin: 0;
+			}
+
+			#customer_info h2, #customer_info h3, #customer_info h4 {
+				margin: 0pt 0pt 1pt 0pt;
+				text-transform: none;
+			}
+		</style>
+
+		<macrolist>
+			<macro id="header">
+				<table class="header">
+					<tr>
+						<td align="left" width="297pt">
+							<#if subsidiary?? && subsidiary.logo?has_content>
+								<img id="logo" src="${subsidiary.logo@url}" alt="${companyInformation.companyname}" />
+							<#else>
+								<#if companyInformation.logoUrl?has_content>
+									<img id="logo" src="${companyInformation.logoUrl}" alt="${companyInformation.companyname}" />
+								<#else>
+									<p>${companyInformation.companyname}</p>
+								</#if>
+							</#if>
+						</td>
+						<td align="right" width="234pt">
+							<div id="header_heading">
+								<h1>Case Service Report</h1>
+								<hr />
+							</div>
+						</td>
+					</tr>
+				</table>
+			</macro>
+			<macro id="footer">
+				<table class="footer">
+					<tr>
+						<td align="left">
+							Page <pagenumber/> of <totalpages/>
+						</td>
+						<td align="right">
+							<span class="uppercase">Case No. ${case.casenumber}</span>
+						</td>
+					</tr>
+				</table>
+			</macro>
+		</macrolist>
+
+		<title>Case_Service_Report_${case.casenumber}.pdf</title>
+	</head>
+
+	<body size="A4">
+
+		<!-- Customer Info Section -->
+		<div id="customer_info" class="main_section">
+			<h4>${case.contact.entityid}</h4>
+			<h2>${case.custevent_nx_customer.companyname}</h2>
+			<p><@addressWithoutAddressee case.custevent_nx_customer.address case.custevent_nx_customer.addressee /></p>
+		</div>
+
+		<!-- Build Case Resources for Service Details -->
+		<#assign caseResources = [] />
+
+		<#list tasks as task>
+
+			<!-- Primary Assigned Resource -->
+			<#if task.assigned?has_content>
+				<#assign resourceLabel = task.custevent_nx_task_type + " " + task.assigned />
+				<#if !caseResources?seq_contains(resourceLabel)>
+					<#assign caseResources = caseResources + [resourceLabel] />
+				</#if>
+			</#if>
+
+			<!-- Team Members -->
+			<#if task.custevent_nx_task_team?has_content>
+				<#list task.custevent_nx_task_team?split(",") as member>
+					<#assign member = member?trim />
+					<#if member?has_content>
+						<#assign resourceLabel = task.custevent_nx_task_type + " " + member />
+						<#if !caseResources?seq_contains(resourceLabel)>
+							<#assign caseResources = caseResources + [resourceLabel] />
+						</#if>
+					</#if>
+				</#list>
+			</#if>
+
+		</#list>
+
+		<!-- Get first Sales Order line/object for SO body fields used in Service Details -->
+		<#assign serviceOrder = {} />
+		<#if salesorder?has_content && salesorder?size gt 0>
+			<#assign serviceOrder = salesorder[0] />
+		</#if>
+
+		<!-- Machine & Case Details Sections -->
+		<table class="minor_section">
+			<tr>
+				<td width="250pt">
+					<!-- Case Asset Details -->
+					<#assign heading = "Site Details" />
+					<#assign fields = []>
+					<#assign fields = fields + [{ "label": "Site Name", "eval": "{name}?replace('<br />',' ')", "printAlways": true }]>
+					<#assign fields = fields + [{ "label": "Site Address", "value": "{custrecord_nx_asset_address_text}", "printAlways": true }]>
+					<@printRecordDetails asset heading fields />
+
+					<!-- Service Details -->
+					<h3 class="details">Service Details</h3>
+					<table class="details">
+						<tr>
+							<td class="label" width="92pt">Project Name</td>
+							<td class="value">${case.company}</td>
+						</tr>
+						<#if caseResources?size gt 0>
+							<tr>
+								<td class="label" width="92pt">Resources</td>
+								<td class="value">
+									<#list caseResources as resource>
+										${resource}<#if resource_has_next><br /></#if>
+									</#list>
+								</td>
+							</tr>
+						</#if>
+						<tr>
+							<td class="label" width="92pt">Requested Site Arrival Time</td>
+							<td class="value"><#if serviceOrder.custbody_bc_arrival_time?? && serviceOrder.custbody_bc_arrival_time?has_content>${serviceOrder.custbody_bc_arrival_time}</#if></td>
+						</tr>
+					</table>
+				</td>
+				<td width="31pt">
+					&nbsp;
+				</td>
+				<td width="250pt">
+					<!-- Case Details -->
+					<#assign heading = "Case Details" />
+					<#assign fields = []>
+					<#assign fields = fields + [{ "label": "Date", "value": "{startdate}", "printAlways": true }]>
+					<#assign fields = fields + [{ "label": "Case No.", "value": "{casenumber}", "printAlways": true }]>
+					<#assign fields = fields + [{ "label": "Subject", "value": "{custevent_nx_case_type}", "printAlways": true }]>
+					<#assign fields = fields + [{ "label": "PO No.", "value": "{custevent_nx_case_purchaseorder}", "printAlways": true }]>
+					<#assign fields = fields + [{ "label": "Details", "value": "{custevent_nx_case_details}", "printAlways": true }]>
+					<@printRecordDetails case heading fields />
+				</td>
+			</tr>
+		</table>
+
+		<!-- Task Details Section -->
+		<#if tasks?size gt 0>
+		<p page-break-before="always"></p>
+			<h2>Tasks</h2>
+
+			<#list tasks?sort_by("custevent_nx_start_time")?sort_by("custevent_nx_start_date") as task>
+
+				<!-- Task Details -->
+				<#assign heading = "Task No. {internalid}" />
+				<#assign fields = [] />
+				<#assign fields = fields + [{ "label": "Service Date", "value": "{custevent_nx_start_date}", "printAlways": true }] />
+				<#assign fields = fields + [{ "label": "Service Time", "value": "{custevent_nx_start_time}", "printAlways": true }] />
+				<#assign fields = fields + [{ "label": "Resource", "value": "{assigned}", "printAlways": true }] />
+				<#assign fields = fields + [{ "label": "Task Type", "value": "{custevent_nx_task_type}", "printAlways": true }] />
+				<#assign fields = fields + [{ "label": "Team Members", "eval": "{custevent_nx_task_team}?replace(',',', ')", "printAlways": false }] />
+				<#assign fields = fields + [{ "label": "Details", "value": "{message}", "printAlways": false }] />
+				<#assign fields = fields + [{ "label": "Actions Taken", "value": "{custevent_nx_actions_taken}", "printAlways": true }] />
+				<@printRecordDetails task heading fields />
+
+				<!-- Task Time -->
+<#assign heading = "Labor" />
+<#assign fields = [] />
+<#assign fields = fields + [{ "label": "Date", "value": "{date}", "width": "55pt" }] />
+<#assign fields = fields + [{ "label": "Employee", "value": "{employee}", "width": "95pt" }] />
+<#assign fields = fields + [{ "label": "Description", "value": "{item}", "width": "100pt" }] />
+<#assign fields = fields + [{ "label": "Depart Shop", "value": "{custcol_nx_time_start}", "width": "70pt" }] />
+<#assign fields = fields + [{ "label": "Arrive Site", "value": "{custcol_bc_fsm_arrive_site}", "width": "70pt" }] />
+<#assign fields = fields + [{ "label": "Leave Site", "value": "{custcol_bc_fsm_leave_site}", "width": "70pt" }] />
+<#assign fields = fields + [{ "label": "Return to Shop", "value": "{custcol_nx_time_end}", "width": "70pt" }] />
+<#assign parentfieldid = "custcol_nx_task" />
+<#assign parentid = task.internalid />
+<#if times?has_content><#assign records = times /><#else><#assign records = [] /></#if>
+<@listRecords records heading fields parentfieldid parentid />
+
+				<!-- Task SO -->
+				<#assign heading = "Parts &amp; Charges" />
+				<#assign fields = [] />
+				<#assign fields = fields + [{ "label": "Quantity", "value": "{quantity}", "width": "72pt" }] />
+				<#assign fields = fields + [{ "label": "Item", "value": "{item}", "width": "144pt" }] />
+				<#assign fields = fields + [{ "label": "Description", "value": "{memo}", "width": "315pt" }] />
+				<#assign parentfieldid = "custcol_nx_task" />
+				<#assign parentid = task.internalid />
+				<#if salesorder?has_content><#assign records = salesorder /><#else><#assign records = [] /></#if>
+				<@listRecords records heading fields parentfieldid parentid />
+
+				<!-- Task Signoff Section -->
+<#if task.custevent_bc_fsm_tech_name?has_content
+	|| task.custevent_nx_customer_name?has_content
+	|| task.custevent_nx_technician_signature?has_content
+	|| task.custevent_nx_customer_signature?has_content>
+
+	<p class="h5" page-break-after="avoid">Sign Off</p>
+	<table class="details signatures" page-break-inside="avoid">
+		<tr>
+			<td class="label" width="64">Technician</td>
+			<td class="value" width="176">
+				<#if task.custevent_bc_fsm_tech_name?has_content>
+					${task.custevent_bc_fsm_tech_name}
+				<#else>
+					Name not recorded
+				</#if>
+			</td>
+			<td width="31"></td>
+			<td class="label" width="64">Customer</td>
+			<td class="value" width="176">
+				<#if task.custevent_nx_customer_name?has_content>
+					${task.custevent_nx_customer_name}
+				<#else>
+					Name not recorded
+				</#if>
+			</td>
+		</tr>
+		<tr>
+			<td class="label">Signature</td>
+			<td>
+				<#if task.custevent_nx_technician_signature?has_content>
+					${task.custevent_nx_technician_signature}
+				<#else>
+					No signature captured
+				</#if>
+			</td>
+			<td>&nbsp;</td>
+			<td class="label">Signature</td>
+			<td>
+				<#if task.custevent_nx_customer_signature?has_content>
+					${task.custevent_nx_customer_signature}
+				<#else>
+					No signature captured
+				</#if>
+			</td>
+		</tr>
+	</table>
+
+</#if>
+			</#list>
+		</#if>
+
+		<!-- Only print the checklist heading if there is content within the checklists -->
+		<#if checklistsHaveContent(maintenance, repair, install, uninstall)>
+			<h2>Checklists Completed</h2>
+		</#if>
+
+		<!-- Install Checklists -->
+		<#assign heading = "Install - {custrecord_nx_install_asset}" />
+		<#assign fields = [] />
+		<#assign fields = fields + [{ "label": "Outcome", "value": "{custrecord_nx_install_outcome}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Notes", "value": "{custrecord_nx_install_notes}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Image", "image": "custrecord_nx_install_image", "printAlways": false }] />
+		<@singleColumnChecklist install heading fields />
+		
+		<!-- Install Checklists -->
+		<#assign heading = "Repair - {custrecord_nx_repair_asset}" />
+		<#assign fields = [] />
+		<#assign fields = fields + [{ "label": "Outcome", "value": "{custrecord_nx_repair_outcome}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Notes", "value": "{custrecord_nx_repair_notes}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Image", "image": "custrecord_nx_repair_image", "printAlways": false }] />
+		<@singleColumnChecklist repair heading fields />
+		
+		<!-- Install Checklists -->
+		<#assign heading = "Maintenance - {custrecord_nx_maintenance_asset}" />
+		<#assign fields = [] />
+		<#assign fields = fields + [{ "label": "Outcome", "value": "{custrecord_nx_maintenance_outcome}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Notes", "value": "{custrecord_nx_maintenance_notes}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Image", "image": "custrecord_nx_maintenance_image", "printAlways": false }] />
+		<@singleColumnChecklist maintenance heading fields />
+		
+		<!-- Install Checklists -->
+		<#assign heading = "Uninstall - {custrecord_nx_uninstall_asset}" />
+		<#assign fields = [] />
+		<#assign fields = fields + [{ "label": "Outcome", "value": "{custrecord_nx_uninstall_outcome}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Notes", "value": "{custrecord_nx_uninstall_notes}", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Image", "image": "custrecord_nx_uninstall_image", "printAlways": false }] />
+		<@singleColumnChecklist uninstall heading fields />
+
+		<!-- E.G. Double Column Checklists -->
+		<#--
+		<#assign heading = "HyderPRO MO-3 RO System 105" />
+		<#assign fields = [] />
+		<#assign fields = fields + [{ "label": "Cabinet Air Low", "value": "7832", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Cabinet Air High", "value": "7832", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Supply Gas Press", "value": "783", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Pilot Gas Press", "value": "783", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Manifold Gas Low", "value": "783", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Manifold Gas High", "value": "47", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "O2 % Low", "value": "45", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "O2 % High", "value": "O2 % High", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "CO ppm Low", "value": "7832", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "CO ppm High", "value": "786", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Net Stack Deg F Low", "value": "752", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Net Stack Deg F High", "value": "698", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Pilot Flame Signal", "value": "89", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Main Flame Signal High", "value": "786", "printAlways": true }] />
+		<#assign fields = fields + [{ "label": "Combustion Air Temp", "value": "7832", "printAlways": true }] />
+		<@doubleColumnChecklist [0,0] heading fields />
+		-->
+
+		<!-- image section -->
+		<#if image?size gt 0>
+			<h3>Images</h3>
+			<@printImages image />
+		</#if>
+
+		<!-- case sign-off section -->
+		<#--
+		<h3 page-break-after="avoid">Sign Off</h3>
+		<table class="details signatures" page-break-inside="avoid">
+			<tr>
+				<td class="label" width="64">Technician</td>
+				<td class="value" width="176"><#if case.custevent_bc_fsm_tech_name?has_content>${case.custevent_bc_fsm_tech_name}<#else>Name not recorded</#if></td>
+				<td width="31"></td>
+				<td class="label" width="64">Customer</td>
+				<td class="value" width="176"><#if case.custevent_nx_customer_name?has_content>${case.custevent_nx_customer_name}<#else>Name not recorded</#if></td>
+			</tr>
+			<tr>
+				<td class="label">Signature</td>
+				<td><#if case.custevent_nx_technician_signature?has_content>${case.custevent_nx_technician_signature}<#else>No signature captured</#if></td>
+				<td>&nbsp;</td>
+				<td class="label">Signature</td>
+				<td><#if case.custevent_nx_customer_signature?has_content>${case.custevent_nx_customer_signature}<#else>No signature captured</#if></td>
+			</tr>
+		</table>
+		-->
+	</body>
+</pdf>
+
+<#macro addressWithoutAddressee address addressee>
+	<#assign regexp = '^' + addressee + '<br />' />
+	${address?replace(regexp,'','rm')}
+</#macro>
+
+<#macro toInitials spaceSeparatedString>
+    <span class="uppercase">
+	<#list spaceSeparatedString?split(' ') as word>
+	    <#if word?index != 0>.</#if>
+	    ${word?trim?split('','r')[0]}
+	</#list>
+    </span>
+</#macro>
+
+<#macro getProp datahash propstring stripLineBreaks>
+	<#assign propoutput = datahash />
+	<#assign proparr = propstring?split(".") />
+	<#list proparr as prop>
+		<#assign propoutput = propoutput[prop] />
+	</#list>
+	<#if stripLineBreaks>${propoutput?replace("<br />"," ")}<#else>${propoutput}</#if>
+</#macro>
+
+<#macro fprint formatstring datahash>
+	<#assign output = formatstring />
+	<#assign keys = formatstring?matches("\\{[^}{]+\\}") />
+	<#list keys as key>
+		<#assign hashkey = key?remove_beginning("{")?remove_ending("}") />
+		<#assign hashvalue><@getProp datahash hashkey true/></#assign>
+		<#assign output = output?replace(key, hashvalue) />
+	</#list>
+	${output}
+</#macro>
+
+<#macro fprinteval formatstring datahash>
+	<#assign output = formatstring />
+	<#assign keys = formatstring?matches("\\{[^}{]+\\}") />
+	<#list keys as key>
+		<#assign hashkey = key?remove_beginning("{")?remove_ending("}") />
+		<#assign fullkey = "(datahash." + hashkey + ")" />
+		<#assign output = output?replace(key, fullkey) />
+	</#list>
+	${output?eval}
+</#macro>
+
+<#macro fieldValueToFileUrl fieldValue>
+	${body.api}${fieldValue?replace('.+?id=(\\d+)&.+','$1','r')}
+</#macro>
+
+<#macro fieldValueToImage fieldValue dpi>
+	<#assign imgUrl><@fieldValueToFileUrl fieldValue /></#assign>
+	<img dpi="${dpi}" src="${imgUrl?html}"></img>
+</#macro>
+
+<#macro printImages imagesToPrint>
+	<table class="images">
+		<!-- Column counter -->
+		<#assign column = 0 >
+		<#list imagesToPrint as img>
+			<#if column == 2><#assign column = 1><#else><#assign column += 1></#if>
+
+			<!-- Start new pair of rows -->
+			<#if column == 1>
+				<#assign row1><tr class="image-row"></#assign>
+				<#assign row2><tr class="caption-row"></#assign>
+			</#if>
+		
+			<!-- Add image to row 1 and description to row 2 -->
+			<#assign row1>${row1}<td class="image-box"><img dpi="${body.imgdpimed}" src="${img.url?html}" /></td></#assign>
+			<#assign row2>${row2}<td class="image-caption">${img?index + 1}. ${img.description?html}</td></#assign>
+
+			<!-- Add gap cell -->
+			<#if column == 1>
+				<#assign row1>${row1}<td class="gap" width="28pt"></td></#assign>
+				<#assign row2>${row2}<td class="gap" width="28pt"></td></#assign>
+			</#if>
+
+			<!-- Print and close pair of rows -->
+			<#if column == 2>
+				${row1}</tr>
+				${row2}</tr>
+			</#if>
+		</#list>
+ 
+		<!-- Print empty cell spanning remaining columns and close rows -->
+		<#if column != 2>
+			${row1}<td class="image-box"></td></tr>
+			${row2}<td class="image-caption"></td></tr>
+		</#if>
+	</table>
+</#macro>
+
+<#macro printRecordDetails record heading fields>
+	<h3 class="details">
+		<@fprint heading record />
+	</h3>
+
+	<!-- filter out fields that won't be printed -->
+	<#assign fieldstoprint = [] />
+	<#list fields as field>
+		<#assign valuetoprint><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></#assign>
+		<#if field.printAlways || valuetoprint?trim?has_content>
+			<#assign fieldstoprint = fieldstoprint + [field] />
+		</#if>
+	</#list>
+
+	<!-- sort out which fields go in which column -->
+	<#assign leftfields = [] />
+	<#assign rightfields = [] />
+	<#list fieldstoprint as ftp>
+		<#if ftp.secondColumn?has_content && ftp.secondColumn>
+			<#assign rightfields = rightfields + [ftp] />
+		<#else>
+			<#assign leftfields = leftfields + [ftp] />
+		</#if>
+	</#list>
+
+	<!-- calculate width of label columns -->
+	<#local leftWidth = calculateLabelColumnWidth(8, record, leftfields)>
+	<#local rightWidth = calculateLabelColumnWidth(8, record, rightfields)>
+
+	<!-- if there is a second column, print a two column table -->
+	<#if rightfields?size gt 0>
+
+		<table>
+			<tr>
+				<td width="250pt">
+					<table class="details">
+						<#list leftfields as field>
+							<tr>
+								<td class="label" width="${leftWidth}pt"><@fprint field.label record /></td>
+								<td class="value"><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+							</tr>
+						</#list>
+					</table>
+				</td>
+				<td width="31pt">
+					&nbsp;
+				</td>
+				<td width="250pt">
+					<table class="details">
+						<#list rightfields as field>
+							<tr>
+								<td class="label" width="${rightWidth}pt"><@fprint field.label record /></td>
+								<td class="value"><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+							</tr>
+						</#list>
+					</table>
+				</td>
+			</tr>
+		</table>
+
+	<#else>
+		<table class="details">
+			<#list leftfields as field>
+				<tr>
+					<td class="label" width="${leftWidth}pt"><@fprint field.label record /></td>
+					<td class="value"><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+				</tr>
+			</#list>
+		</table>
+	</#if>
+	
+</#macro>
+
+<#macro listRecords records heading fields parentfieldid parentid>
+
+	<!-- if info provided, filter to only list records related to the current parent -->
+	<#assign filterrecords = parentfieldid?has_content && parentid?has_content />
+	<#if filterrecords>
+		<#assign filteredrecords = [] />
+		<#list records as record>
+			<#if record[parentfieldid].internalid == parentid>
+				<#assign filteredrecords = filteredrecords + [record] />
+			</#if>
+			<#if record[parentfieldid] == parentid>
+				<#assign filteredrecords = filteredrecords + [record] />
+			</#if>
+		</#list>
+		<#assign recordstoprint = filteredrecords />
+	<#else>
+		<#assign recordstoprint = records />
+	</#if>
+
+	<#if recordstoprint?size gt 0>
+		<p class="h5">${heading}</p>
+
+		<table class="list">
+			<thead>
+				<tr>
+					<#list fields as field>
+						<th width="${field.width}">${field.label}</th>
+					</#list>
+				</tr>
+			</thead>
+
+			<#list recordstoprint as record>
+				<#if record?index % 2 == 0>
+					<#assign cellclass = "even" />
+				<#else>
+					<#assign cellclass = "odd" />
+				</#if>
+
+				<tr>
+					<#list fields as field>
+						<td class="${cellclass}"><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+					</#list>
+				</tr>
+			</#list>
+		</table>
+	</#if>
+</#macro>
+
+<#macro listChecklists records heading fields>
+	<h3>${heading}</h3>
+
+	<#if records?size gt 0>
+		<table class="list">
+			<thead>
+				<tr>
+					<#list fields as field>
+						<th width="${field.width}">${field.label}</th>
+					</#list>
+				</tr>
+			</thead>
+			<#list records as record>
+				<#if record?index % 2 == 0>
+					<#assign cellclass = "even" />
+				<#else>
+					<#assign cellclass = "odd" />
+				</#if>
+				<tr>
+					<#list fields as field>
+						<td class="${cellclass}"><#if field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+					</#list>
+				</tr>
+			</#list>
+		</table>
+	<#else>
+		<p class="largep">N/A</p>
+	</#if>
+</#macro>
+
+<#macro singleColumnChecklist records heading fields>
+	<#list records as record>
+		<h3><@fprint heading record /></h3>
+
+		<table class="list">
+			<thead>
+				<tr>
+					<th width="155">Item</th>
+					<th>Value / Comments</th>
+				</tr>
+			</thead>
+			<#assign fieldstoprint = [] />
+			<#assign imagestoprint = [] />
+			<#list fields as field>
+				<#assign valuetoprint><#if field.inlineimage?has_content>${record[field.inlineimage]?html}<#elseif field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></#assign>
+				<#if field.printAlways || valuetoprint?trim?has_content>
+					<#assign fieldstoprint = fieldstoprint + [field] />
+				</#if>
+				<#assign imagetoprint><#if field.image?has_content>${record[field.image]?html}</#if></#assign>
+				<#if imagetoprint?trim?has_content>
+					<#assign imagestoprint = imagestoprint + [field] />
+				</#if>
+			</#list>
+			<#list fieldstoprint as field>
+				<#if field?index % 2 == 0>
+					<#assign cellclass = "even" />
+				<#else>
+					<#assign cellclass = "odd" />
+				</#if>
+				<tr>
+					<td class="label ${cellclass}"><@fprint field.label record /></td>
+					<td class="value ${cellclass}"><#if field.inlineimage?has_content><@fieldValueToImage record[field.inlineimage] body.imgdpisml /><#elseif field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></td>
+				</tr>
+			</#list>
+		</table>
+		<#assign finalimagestoprint = [] />
+		<#list imagestoprint as img>
+			<#assign imgUrl><@fieldValueToFileUrl record[img.image] /></#assign>
+			<#assign imgDescription><@fprint img.label record /></#assign>
+			<#assign finalimagestoprint = finalimagestoprint + [{ "url": imgUrl, "description": imgDescription }] />
+		</#list>
+		<#if finalimagestoprint?size gt 0>
+			<@printImages finalimagestoprint />
+		</#if>
+	</#list>
+</#macro>
+
+<#macro doubleColumnChecklist records heading fields>
+	<#list records as record>
+		<h3><@fprint heading record /></h3>
+
+		<table class="list">
+			<!-- print heading line -->
+			<thead>
+				<tr>
+					<th width="155pt">Item</th>
+					<th width="95pt">Value / Comments</th>
+					<th width="32pt" class="gap">&nbsp;</th>
+					<th width="155pt">Item</th>
+					<th width="95pt">Value / Comments</th>
+				</tr>
+			</thead>
+
+			<!-- filter out fields that won't be printed -->
+			<#assign fieldstoprint = [] />
+			<#assign imagestoprint = [] />
+			<#list fields as field>
+				<#assign valuetoprint><#if field.inlineimage?has_content>${record[field.inlineimage]?html}<#elseif field.value?has_content><@fprint field.value record /><#elseif field.eval?has_content><@fprinteval field.eval record /></#if></#assign>
+				<#if field.printAlways || valuetoprint?trim?has_content>
+					<#assign fieldstoprint = fieldstoprint + [field] />
+				</#if>
+				<#assign imagetoprint><#if field.image?has_content>${record[field.image]?html}</#if></#assign>
+				<#if imagetoprint?trim?has_content>
+					<#assign imagestoprint = imagestoprint + [field] />
+				</#if>
+			</#list>
+
+			<!-- sort out which fields go in which column -->
+			<#assign leftlistlength = ((fieldstoprint?size)/2)?ceiling />
+			<#assign rightlistlength = fieldstoprint?size - listALength />
+			<#assign leftfields = fieldstoprint[0..(leftlistlength-1)] />
+			<#assign rightfields = fieldstoprint[leftlistlength..] />
+
+			<!-- print fields -->
+			<#list leftfields as leftfield>
+				<!-- get right field if it exists -->
+				<#if leftfield?index != rightfields?size>
+					<#assign rightfield = rightfields[leftfield?index] />
+				<#else>
+					<#assign rightfield = {} />
+				</#if>
+				<!-- sort out row based class -->
+				<#if leftfield?index % 2 == 0>
+					<#assign cellclass = "even" />
+				<#else>
+					<#assign cellclass = "odd" />
+				</#if>
+				<tr>
+					<td class="label ${cellclass}"><@fprint leftfield.label record /></td>
+					<td class="value ${cellclass}"><#if leftfield.inlineimage?has_content><@fieldValueToImage record[leftfield.inlineimage] body.imgdpisml /><#elseif leftfield.value?has_content><@fprint leftfield.value record /><#elseif leftfield.eval?has_content><@fprinteval leftfield.eval record /></#if></td>
+					<td class="gap">&nbsp;</td>
+					<td class="label ${cellclass}"><@fprint rightfield.label record /></td>
+					<td class="value ${cellclass}"><#if rightfield.inlineimage?has_content><@fieldValueToImage record[rightfield.inlineimage] body.imgdpisml /><#elseif rightfield.value?has_content><@fprint rightfield.value record /><#elseif rightfield.eval?has_content><@fprinteval rightfield.eval record /></#if></td>
+				</tr>
+			</#list>
+		</table>
+		<#assign finalimagestoprint = [] />
+		<#list imagestoprint as img>
+			<#assign imgUrl><@fieldValueToFileUrl record[img.image] /></#assign>
+			<#assign imgDescription><@fprint img.label record /></#assign>
+			<#assign finalimagestoprint = finalimagestoprint + [{ "url": imgUrl, "description": imgDescription }] />
+		</#list>
+		<#if finalimagestoprint?size gt 0>
+			<@printImages finalimagestoprint />
+		</#if>
+	</#list>
+</#macro>
+
+<#function checklistsHaveContent checklistArray...>
+	<#local hasContent = false>
+	<#list checklistArray as checklist>
+		<#local hasContent = hasContent || (checklist?has_content && checklist?size gt 0)>
+	</#list>
+	<#return hasContent>
+</#function>
+
+<#function calculateLabelColumnWidth fontSize record fields>
+	<#local maxChars = 0>
+	<#list fields as field>
+		<#assign labelValue><@fprint field.label record /></#assign>
+		<#if maxChars lt labelValue?length><#local maxChars = labelValue?length></#if>
+	</#list>
+	<#local charWidth = 0.4 * fontSize>
+	<#local extraChars = 4>
+	<#return (maxChars + extraChars) * charWidth>
+</#function>
+
+<#function getLogoWidth>
+	<#if logosizes.target.type == 'width'>
+		<#return logosizes.target.value>
+	<#else>
+		<#if subsidiary?? && subsidiary.logo?has_content>
+			<#local size = logosizes[subsidiary.id]?has_content?then(logosizes[subsidiary.id], logosizes.company)>
+		<#else>
+			<#local size = logosizes.company>
+		</#if>
+		<#local ratio = size.width / size.height>
+		<#return ratio * logosizes.target.value>
+	</#if>
+</#function>
+
+<#function getLogoHeight>
+	<#if logosizes.target.type == 'height'>
+		<#return logosizes.target.value>
+	<#else>
+		<#if subsidiary?? && subsidiary.logo?has_content>
+			<#local size = logosizes[subsidiary.id]?has_content?then(logosizes[subsidiary.id], logosizes.company)>
+		<#else>
+			<#local size = logosizes.company>
+		</#if>
+		<#local ratio = size.height / size.width>
+		<#return ratio * logosizes.target.value>
+	</#if>
+</#function>
