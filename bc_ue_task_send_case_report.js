@@ -85,7 +85,7 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/log'],
                           'Thank you.',
                     attachments: [pdfFile],
                     relatedRecords: {
-                        entityId: caseId
+                        activityId: Number(caseId)
                     }
                 });
 
