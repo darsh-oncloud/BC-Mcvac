@@ -63,7 +63,7 @@ define([
     // Common candidates: 'company' (if the case is filed under company),
     // or a custom field like 'custevent_bc_related_case'. Update both the
     // field id here AND the search filter usage below.
-    const TASK_CASE_LINK_FIELD_ID = 'custevent_nx_customer';
+    const TASK_CASE_LINK_FIELD_ID = 'company';
 
     // TODO: confirm which field on the Support Case holds the Asset this
     // report is for.
@@ -387,6 +387,24 @@ define([
 
             const taskRec = record.load({ type: record.Type.TASK, id: taskId, isDynamic: false });
 
+            // ---- TEMPORARY DIAGNOSTIC: list every field on the Task so we can
+            // find the real field that links it to its Support Case. Remove
+            // this block once TASK_CASE_LINK_FIELD_ID is confirmed. ----
+            try {
+                const allFieldIds = taskRec.getFields();
+                const fieldDump = {};
+                allFieldIds.forEach((fid) => {
+                    const val = getValue(taskRec, fid);
+                    if (val !== '' && val !== null && val !== undefined) {
+                        fieldDump[fid] = val;
+                    }
+                });
+                log.audit('DIAGNOSTIC - Task populated fields', fieldDump);
+            } catch (diagErr) {
+                log.error('DIAGNOSTIC failed', diagErr.message);
+            }
+            // ---- END TEMPORARY DIAGNOSTIC ----
+
             // ---- Condition 1: status ----
             const taskStatus = getValue(taskRec, STATUS_FIELD_ID);
             if (taskStatus !== COMPLETE_STATUS) {
@@ -416,7 +434,19 @@ define([
                 return;
             }
 
-            const caseRec = record.load({ type: record.Type.SUPPORT_CASE, id: caseId });
+            let caseRec;
+            try {
+                caseRec = record.load({ type: record.Type.SUPPORT_CASE, id: caseId });
+            } catch (caseLoadErr) {
+                log.error(
+                    'Case load failed',
+                    'Tried to load Support Case with id "' + caseId + '" (from field ' +
+                    TASK_CASE_LINK_FIELD_ID + '). That id is likely NOT a case id - ' +
+                    'check the DIAGNOSTIC log entry above for the correct field. Error: ' +
+                    caseLoadErr.message
+                );
+                return;
+            }
 
             // ---- Gather ALL data sources the template needs ----
             const caseData = {
@@ -505,19 +535,33 @@ define([
             const pdfFile = render.xmlToPdf({ xmlString: renderedXml });
             pdfFile.name = 'Case_Service_Report_' + caseData.casenumber + '.pdf';
 
-            // ---- Send email ----
+            // ---- Look up the sender employee's own email address ----
+            let senderEmail = '';
+            try {
+                const senderEmployeeRec = record.load({ type: record.Type.EMPLOYEE, id: SENDER_ID });
+                senderEmail = getValue(senderEmployeeRec, 'email');
+            } catch (empErr) {
+                log.error('Could not load sender employee email', empErr.message);
+            }
+
+            // ---- Build recipient list: hardcoded test email + sender's own email ----
+            const recipients = [TEST_EMAIL];
+            if (senderEmail && senderEmail !== TEST_EMAIL) {
+                recipients.push(senderEmail);
+            }
+
+            // ---- Send email - simple, not attached/related to any record ----
             email.send({
                 author: SENDER_ID,
-                recipients: reportEmail,
+                recipients: recipients,
                 subject: 'Case Service Report - Case #' + caseData.casenumber,
                 body: 'Hi,\n\nPlease find attached the service report for Case #' +
                       caseData.casenumber + ', generated automatically after the ' +
                       'customer signature was captured.\n\nThank you.',
-                attachments: [pdfFile],
-                relatedRecords: { entityId: caseId }
+                attachments: [pdfFile]
             });
 
-            log.audit('Report sent', 'Case ' + caseId + ' report emailed to ' + reportEmail);
+            log.audit('Report sent', 'PDF emailed to: ' + recipients.join(', '));
 
         } catch (e) {
             log.error('afterSubmit error', (e.message || e) + (e.stack ? ' | ' + e.stack : ''));
