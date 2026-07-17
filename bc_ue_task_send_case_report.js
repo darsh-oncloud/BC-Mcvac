@@ -1,101 +1,336 @@
 /**
-
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
  */
-define(['N/record', 'N/render', 'N/email', 'N/file', 'N/log'],
-    (record, render, email, file, log) => {
+define([
+    'N/record',
+    'N/render',
+    'N/email',
+    'N/file',
+    'N/log'
+], (
+    record,
+    render,
+    email,
+    file,
+    log
+) => {
 
-        const TEMPLATE_FILE_ID = 33686;
+    // XML file internal ID
+    const TEMPLATE_FILE_ID = 33686;
 
-        const SENDER_ID = 9710; // TODO: replace with a real internal ID
+    // Employee internal ID used as the sender
+    const SENDER_ID = 9710;
 
-        const CASE_LINK_FIELD_ID = 'supportcase'; // TODO: confirm
+    // Support Case field on the Task
+    const CASE_LINK_FIELD_ID = 'supportcase';
 
-        const STATUS_FIELD_ID = 'status';               // TODO: confirm
-        const STATUS_SUBMITTED_VALUE = 'COMPLETE';       // TODO: confirm
+    // Task status configuration
+    const STATUS_FIELD_ID = 'status';
+    const STATUS_SUBMITTED_VALUE = 'COMPLETE';
 
-        // TESTING: hardcoded recipient while custevent_bc_fsm_cust_email check is off
-        const TEST_EMAIL = 'dhruv.soni@bluecollar.cloud';
+    // Task customer-signature field
+    const SIGNATURE_FIELD_ID = 'custevent_nx_customer_signature';
 
-        // -------------------------------------------------------------------------
+    // Testing recipient
+    const TEST_EMAIL = 'dhruv.soni@bluecollar.cloud';
 
-        const afterSubmit = (context) => {
-            try {
-                if (context.type !== context.UserEventType.EDIT &&
-                    context.type !== context.UserEventType.CREATE &&
-                    context.type !== context.UserEventType.XEDIT) {
-                    return;
-                }
+    /**
+     * Safely gets a record field value for logging.
+     */
+    const safeGetValue = (rec, fieldId) => {
+        try {
+            return rec.getValue({
+                fieldId: fieldId
+            });
+        } catch (e) {
+            return '';
+        }
+    };
 
-                const newRec = context.newRecord;
+    const afterSubmit = (context) => {
+        try {
+            const allowedEvents = [
+                context.UserEventType.CREATE,
+                context.UserEventType.EDIT,
+                context.UserEventType.XEDIT
+            ];
 
-                // ---- Condition 1: Task status is Submitted/Completed ----
-                const status = newRec.getValue({ fieldId: STATUS_FIELD_ID });
-                if (status !== STATUS_SUBMITTED_VALUE) {
-                    log.debug('Skip', 'Task ' + newRec.id + ' status is "' + status + '", not submitted/completed');
-                    return;
-                }
+            if (allowedEvents.indexOf(context.type) === -1) {
+                return;
+            }
 
-                // ---- Condition 2: Customer signature must be populated ----
-                const signature = newRec.getValue({ fieldId: 'custevent_nx_customer_signature' });
-                if (!signature) {
-                    log.debug('Skip', 'Task ' + newRec.id + ' has no customer signature yet');
-                    return;
-                }
+            const taskId = context.newRecord.id;
 
-                // TESTING: hardcoded recipient (remove once condition 3 is restored above)
-                const reportEmail = TEST_EMAIL;
-
-                // ---- Get the related Support Case (mcvac work order) ----
-                const caseId = newRec.getValue({ fieldId: CASE_LINK_FIELD_ID });
-                if (!caseId) {
-                    log.error('No case found', 'Task ' + newRec.id + ' has no related case in field ' + CASE_LINK_FIELD_ID);
-                    return;
-                }
-
-                // ---- Load the case record (used as the data source for the template) ----
-                const caseRec = record.load({
-                    type: record.Type.SUPPORT_CASE,
-                    id: caseId
+            if (!taskId) {
+                log.error({
+                    title: 'Missing Task ID',
+                    details: 'Task internal ID was not available.'
                 });
+                return;
+            }
 
-                // ---- Load the XML template from the file cabinet ----
-                const templateFile = file.load({ id: TEMPLATE_FILE_ID });
-                const templateContent = templateFile.getContents();
+            /*
+             * Load the complete Task record.
+             *
+             * This is important for XEDIT because context.newRecord may contain
+             * only the fields changed during inline editing.
+             */
+            const taskRec = record.load({
+                type: record.Type.TASK,
+                id: taskId,
+                isDynamic: false
+            });
 
-                // ---- Render the template + case data into a PDF ----
-                const renderer = render.create();
-                renderer.templateContent = templateContent;
-                renderer.addRecord({
-                    templateName: 'record',
-                    record: caseRec
+            // ---------------------------------------------------------------
+            // Condition 1: Task must be complete
+            // ---------------------------------------------------------------
+
+            const status = taskRec.getValue({
+                fieldId: STATUS_FIELD_ID
+            });
+
+            log.debug({
+                title: 'Task Status',
+                details: {
+                    taskId: taskId,
+                    status: status,
+                    requiredStatus: STATUS_SUBMITTED_VALUE
+                }
+            });
+
+            if (status !== STATUS_SUBMITTED_VALUE) {
+                log.debug({
+                    title: 'Skip - Task Not Complete',
+                    details:
+                        'Task ' + taskId +
+                        ' status is "' + status +
+                        '", not "' + STATUS_SUBMITTED_VALUE + '".'
                 });
+                return;
+            }
 
-                const pdfFile = renderer.renderAsPdf();
-                pdfFile.name = 'CaseReport_' + caseId + '.pdf';
+            // ---------------------------------------------------------------
+            // Condition 2: Customer signature must be populated
+            // ---------------------------------------------------------------
 
-                // ---- Send the email with the PDF attached ----
-                email.send({
-                    author: SENDER_ID,
-                    recipients: reportEmail,
-                    subject: 'Case Service Report - Case #' + caseId,
-                    body: 'Hi,\n\nPlease find attached the service report for this case, ' +
-                          'generated automatically after the customer signature was captured.\n\n' +
-                          'Thank you.',
-                    attachments: [pdfFile],
-                    relatedRecords: {
-                        activityId: Number(caseId)
+            const signature = taskRec.getValue({
+                fieldId: SIGNATURE_FIELD_ID
+            });
+
+            if (!signature) {
+                log.debug({
+                    title: 'Skip - No Signature',
+                    details:
+                        'Task ' + taskId +
+                        ' has no customer signature.'
+                });
+                return;
+            }
+
+            // ---------------------------------------------------------------
+            // Get Support Case from Task
+            // ---------------------------------------------------------------
+
+            const caseIdValue = taskRec.getValue({
+                fieldId: CASE_LINK_FIELD_ID
+            });
+
+            const caseId = Number(caseIdValue);
+
+            if (!caseIdValue || !caseId || isNaN(caseId)) {
+                log.error({
+                    title: 'No Valid Support Case',
+                    details: {
+                        taskId: taskId,
+                        fieldId: CASE_LINK_FIELD_ID,
+                        fieldValue: caseIdValue
                     }
                 });
-
-                log.audit('Report sent', 'Case ' + caseId + ' report emailed to ' + reportEmail +
-                    ' from Task ' + newRec.id);
-
-            } catch (e) {
-                log.error('afterSubmit error', (e.message || e) + (e.stack ? ' | ' + e.stack : ''));
+                return;
             }
-        };
 
-        return { afterSubmit };
-    });
+            log.debug({
+                title: 'Support Case Found',
+                details: {
+                    taskId: taskId,
+                    caseId: caseId
+                }
+            });
+
+            // ---------------------------------------------------------------
+            // Load Support Case
+            // ---------------------------------------------------------------
+
+            const caseRec = record.load({
+                type: record.Type.SUPPORT_CASE,
+                id: caseId,
+                isDynamic: false
+            });
+
+            const caseNumber =
+                safeGetValue(caseRec, 'casenumber') || caseId;
+
+            log.debug({
+                title: 'Support Case Data',
+                details: {
+                    caseId: caseId,
+                    caseNumber: caseNumber,
+                    title: safeGetValue(caseRec, 'title'),
+                    company: safeGetValue(caseRec, 'company'),
+                    status: safeGetValue(caseRec, 'status')
+                }
+            });
+
+            // ---------------------------------------------------------------
+            // Load XML template
+            // ---------------------------------------------------------------
+
+            const templateFile = file.load({
+                id: TEMPLATE_FILE_ID
+            });
+
+            const templateContent = templateFile.getContents();
+
+            if (!templateContent) {
+                log.error({
+                    title: 'Empty XML Template',
+                    details:
+                        'Template file ' + TEMPLATE_FILE_ID +
+                        ' does not contain XML content.'
+                });
+                return;
+            }
+
+            /*
+             * Log the template variables.
+             *
+             * Examples:
+             * ${record.casenumber}
+             * ${record.title}
+             * ${task.custevent_nx_customer_signature}
+             */
+            const templateVariables =
+                templateContent.match(/\$\{[^}]+\}/g) || [];
+
+            log.debug({
+                title: 'XML Template Information',
+                details: {
+                    templateId: TEMPLATE_FILE_ID,
+                    templateName: templateFile.name,
+                    usesRecordAlias:
+                        templateContent.indexOf('${record.') !== -1,
+                    usesTaskAlias:
+                        templateContent.indexOf('${task.') !== -1,
+                    variables: templateVariables.slice(0, 100)
+                }
+            });
+
+            // ---------------------------------------------------------------
+            // Render XML as PDF
+            // ---------------------------------------------------------------
+
+            const renderer = render.create();
+
+            renderer.templateContent = templateContent;
+
+            /*
+             * Support Case fields must be referenced in the XML as:
+             *
+             * ${record.casenumber}
+             * ${record.title}
+             * ${record.company}
+             */
+            renderer.addRecord({
+                templateName: 'record',
+                record: caseRec
+            });
+
+            /*
+             * Task fields must be referenced in the XML as:
+             *
+             * ${task.title}
+             * ${task.custevent_nx_customer_signature}
+             */
+            renderer.addRecord({
+                templateName: 'task',
+                record: taskRec
+            });
+
+            const pdfFile = renderer.renderAsPdf();
+
+            pdfFile.name =
+                'CaseReport_' + caseNumber + '.pdf';
+
+            log.audit({
+                title: 'PDF Generated',
+                details: {
+                    taskId: taskId,
+                    caseId: caseId,
+                    caseNumber: caseNumber,
+                    pdfName: pdfFile.name,
+                    pdfSize: pdfFile.size
+                }
+            });
+
+            // ---------------------------------------------------------------
+            // Send email to testing recipient
+            // ---------------------------------------------------------------
+
+            email.send({
+                author: SENDER_ID,
+
+                // Testing email only
+                recipients: TEST_EMAIL,
+
+                subject:
+                    'Case Service Report - Case #' + caseNumber,
+
+                body:
+                    'Hi,\n\n' +
+                    'Please find attached the service report for Case #' +
+                    caseNumber + '.\n\n' +
+                    'The report was generated automatically after the ' +
+                    'customer signature was captured.\n\n' +
+                    'Thank you.',
+
+                attachments: [
+                    pdfFile
+                ]
+
+                /*
+                 * No relatedRecords property.
+                 *
+                 * Therefore, the script is not explicitly attaching the
+                 * email to the Support Case Communication tab.
+                 */
+            });
+
+            log.audit({
+                title: 'Report Sent',
+                details: {
+                    taskId: taskId,
+                    caseId: caseId,
+                    caseNumber: caseNumber,
+                    recipient: TEST_EMAIL,
+                    senderEmployeeId: SENDER_ID,
+                    pdfName: pdfFile.name
+                }
+            });
+
+        } catch (e) {
+            log.error({
+                title: 'afterSubmit Error',
+                details: {
+                    name: e.name || '',
+                    message: e.message || String(e),
+                    stack: e.stack || ''
+                }
+            });
+        }
+    };
+
+    return {
+        afterSubmit: afterSubmit
+    };
+});
