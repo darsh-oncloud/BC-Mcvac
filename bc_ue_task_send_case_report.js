@@ -63,7 +63,7 @@ define([
     // Common candidates: 'company' (if the case is filed under company),
     // or a custom field like 'custevent_bc_related_case'. Update both the
     // field id here AND the search filter usage below.
-    const TASK_CASE_LINK_FIELD_ID = 'company';
+    const TASK_CASE_LINK_FIELD_ID = 'custevent_nx_customer';
 
     // TODO: confirm which field on the Support Case holds the Asset this
     // report is for.
