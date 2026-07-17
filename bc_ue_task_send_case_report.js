@@ -387,19 +387,44 @@ define([
 
             const taskRec = record.load({ type: record.Type.TASK, id: taskId, isDynamic: false });
 
-            // ---- TEMPORARY DIAGNOSTIC: list every field on the Task so we can
-            // find the real field that links it to its Support Case. Remove
-            // this block once TASK_CASE_LINK_FIELD_ID is confirmed. ----
+            // ---- TEMPORARY DIAGNOSTIC: find the field that links Task -> Case.
+            // Previous version got truncated by the giant signature field
+            // eating the 4000-char log limit. This version skips long values
+            // and specifically calls out anything case-related.
+            // Remove this whole block once TASK_CASE_LINK_FIELD_ID is confirmed.
             try {
                 const allFieldIds = taskRec.getFields();
-                const fieldDump = {};
+
+                // 1) Log just the list of field IDs (no values) - always fits.
+                log.audit('DIAGNOSTIC - all field IDs on Task', allFieldIds.join(', '));
+
+                // 2) Log short, non-huge field values only (skip anything long,
+                // like signatures/images, which blow the log size limit).
+                const shortFieldDump = {};
                 allFieldIds.forEach((fid) => {
                     const val = getValue(taskRec, fid);
-                    if (val !== '' && val !== null && val !== undefined) {
-                        fieldDump[fid] = val;
+                    if (val === '' || val === null || val === undefined) return;
+                    const strVal = String(val);
+                    if (strVal.length > 100) return; // skip huge values (signatures etc.)
+                    shortFieldDump[fid] = val;
+                });
+                log.audit('DIAGNOSTIC - short field values on Task', shortFieldDump);
+
+                // 3) Specifically call out anything whose field ID contains
+                // "case" or "job" or "supportcase" - most likely candidates.
+                const caseLikeFields = {};
+                allFieldIds.forEach((fid) => {
+                    if (/case|supportcase|job/i.test(fid)) {
+                        caseLikeFields[fid] = getValue(taskRec, fid);
                     }
                 });
-                log.audit('DIAGNOSTIC - Task populated fields', fieldDump);
+                log.audit('DIAGNOSTIC - case-like fields on Task', caseLikeFields);
+
+                // 4) Also dump the sublists on the Task - the case link might
+                // live in a sublist rather than a body field.
+                const sublistIds = taskRec.getSublists();
+                log.audit('DIAGNOSTIC - sublists on Task', sublistIds.join(', '));
+
             } catch (diagErr) {
                 log.error('DIAGNOSTIC failed', diagErr.message);
             }
