@@ -10,7 +10,7 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/log'],
 
         const SENDER_ID = 9710; // TODO: replace with a real internal ID
 
-        const CASE_LINK_FIELD_ID = 'custevent_bc_related_case'; // TODO: confirm
+        const CASE_LINK_FIELD_ID = 'supportcase'; // TODO: confirm
 
         const STATUS_FIELD_ID = 'status';               // TODO: confirm
         const STATUS_SUBMITTED_VALUE = 'COMPLETE';       // TODO: confirm
