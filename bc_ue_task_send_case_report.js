@@ -16,80 +16,69 @@ define([
     log
 ) => {
 
-    // XML file internal ID
+    // XML template file internal ID
     const TEMPLATE_FILE_ID = 33686;
 
-    // Employee used as the email sender
+    // Employee internal ID used as the email sender
     const SENDER_EMPLOYEE_ID = 9710;
 
-    // Employee receiving the test email
-    // NetSuite will send the email to the email address
-    // configured on this Employee record.
+    // Employee internal ID receiving the test email
     const RECIPIENT_EMPLOYEE_ID = 9710;
 
-    // Support Case field on the Task
-    const CASE_LINK_FIELD_ID = 'supportcase';
-
-    // Task status configuration
+    // Task validation fields
     const STATUS_FIELD_ID = 'status';
-    const STATUS_COMPLETE_VALUE = 'COMPLETE';
+    const COMPLETE_STATUS_VALUE = 'COMPLETE';
 
-    // Customer signature field on Task
-    const SIGNATURE_FIELD_ID = 'custevent_nx_customer_signature';
+    const SIGNATURE_FIELD_ID =
+        'custevent_nx_customer_signature';
 
     /**
-     * Safely get a field value.
+     * Safely get a record field value.
      */
     const safeGetValue = (rec, fieldId) => {
         try {
             return rec.getValue({
                 fieldId: fieldId
             });
-        } catch (e) {
+        } catch (error) {
             return '';
         }
     };
 
     /**
-     * Creates the renderer and adds all records.
+     * Create the PDF renderer.
      *
-     * XML Task references:
+     * The Task will be available in the XML as:
+     *
      * ${record.title}
+     * ${record.status}
      * ${record.custevent_nx_customer_signature}
      *
-     * The Task is also available as:
-     * ${task.title}
+     * Or:
      *
-     * Support Case references:
-     * ${supportCase.casenumber}
-     * ${supportCase.title}
+     * ${task.title}
+     * ${task.status}
+     * ${task.custevent_nx_customer_signature}
      */
-    const createReportRenderer = (
+    const createTaskRenderer = (
         templateContent,
-        taskRec,
-        caseRec
+        taskRec
     ) => {
 
         const renderer = render.create();
 
         renderer.templateContent = templateContent;
 
-        // Main record in the XML is the Task
+        // Make Task available as ${record.fieldid}
         renderer.addRecord({
             templateName: 'record',
             record: taskRec
         });
 
-        // Also provide the Task using the task alias
+        // Make Task available as ${task.fieldid}
         renderer.addRecord({
             templateName: 'task',
             record: taskRec
-        });
-
-        // Related Support Case
-        renderer.addRecord({
-            templateName: 'supportCase',
-            record: caseRec
         });
 
         return renderer;
@@ -112,22 +101,23 @@ define([
             if (!taskId) {
                 log.error({
                     title: 'Missing Task ID',
-                    details: 'Task internal ID was not available.'
+                    details:
+                        'The Task internal ID was not available.'
                 });
                 return;
             }
 
             log.audit({
-                title: 'Service Report Started',
+                title: 'Task Service Report Started',
                 details: {
                     taskId: taskId,
                     eventType: context.type
                 }
             });
 
-            // ---------------------------------------------------------
-            // Load complete Task record
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Load the complete Task record
+            // -----------------------------------------------------
 
             const taskRec = record.load({
                 type: record.Type.TASK,
@@ -135,11 +125,11 @@ define([
                 isDynamic: false
             });
 
-            // ---------------------------------------------------------
-            // Validation 1: Task must be Complete
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Validation 1: Task status must be Complete
+            // -----------------------------------------------------
 
-            const status = taskRec.getValue({
+            const taskStatus = taskRec.getValue({
                 fieldId: STATUS_FIELD_ID
             });
 
@@ -147,108 +137,102 @@ define([
                 title: 'Task Status Validation',
                 details: {
                     taskId: taskId,
-                    currentStatus: status,
-                    requiredStatus: STATUS_COMPLETE_VALUE
+                    currentStatus: taskStatus,
+                    requiredStatus: COMPLETE_STATUS_VALUE
                 }
             });
 
-            if (status !== STATUS_COMPLETE_VALUE) {
+            if (taskStatus !== COMPLETE_STATUS_VALUE) {
                 log.audit({
-                    title: 'Report Skipped - Task Not Complete',
+                    title:
+                        'Service Report Skipped - Task Not Complete',
                     details: {
                         taskId: taskId,
-                        status: status
+                        currentStatus: taskStatus
                     }
                 });
                 return;
             }
 
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
             // Validation 2: Customer signature must be populated
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
 
-            const signature = taskRec.getValue({
+            const customerSignature = taskRec.getValue({
                 fieldId: SIGNATURE_FIELD_ID
             });
 
             log.debug({
-                title: 'Signature Validation',
+                title: 'Customer Signature Validation',
                 details: {
                     taskId: taskId,
-                    signaturePopulated: Boolean(signature),
-                    signatureValue: signature
+                    signaturePopulated:
+                        Boolean(customerSignature),
+                    signatureLength:
+                        customerSignature
+                            ? String(customerSignature).length
+                            : 0
                 }
             });
 
-            if (!signature) {
+            if (!customerSignature) {
                 log.audit({
-                    title: 'Report Skipped - Signature Missing',
+                    title:
+                        'Service Report Skipped - Signature Missing',
                     details: {
                         taskId: taskId,
-                        signatureField: SIGNATURE_FIELD_ID
+                        signatureFieldId:
+                            SIGNATURE_FIELD_ID
                     }
                 });
                 return;
             }
 
-            // ---------------------------------------------------------
-            // Validation 3: Support Case must be populated
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Read useful Task values for logging and email
+            // -----------------------------------------------------
 
-            const caseIdValue = taskRec.getValue({
-                fieldId: CASE_LINK_FIELD_ID
-            });
+            const taskTitle =
+                safeGetValue(taskRec, 'title') ||
+                'Task ' + taskId;
 
-            const caseId = Number(caseIdValue);
+            const taskCompanyValue =
+                safeGetValue(taskRec, 'company');
 
-            log.debug({
-                title: 'Support Case Validation',
+            let taskCompanyText = '';
+
+            try {
+                taskCompanyText = taskRec.getText({
+                    fieldId: 'company'
+                });
+            } catch (companyError) {
+                taskCompanyText = '';
+            }
+
+            log.audit({
+                title: 'Task Values Before Rendering',
                 details: {
                     taskId: taskId,
-                    caseFieldValue: caseIdValue,
-                    caseId: caseId
+                    taskTitle: taskTitle,
+                    taskStatus: taskStatus,
+                    companyValue: taskCompanyValue,
+                    companyText: taskCompanyText,
+                    customerName: safeGetValue(
+                        taskRec,
+                        'custevent_nx_customer_name'
+                    ),
+                    technicianName: safeGetValue(
+                        taskRec,
+                        'custevent_bc_fsm_tech_name'
+                    ),
+                    customerSignaturePopulated:
+                        Boolean(customerSignature)
                 }
             });
 
-            if (!caseIdValue || !caseId || isNaN(caseId)) {
-                log.error({
-                    title: 'Report Skipped - Invalid Support Case',
-                    details: {
-                        taskId: taskId,
-                        fieldId: CASE_LINK_FIELD_ID,
-                        fieldValue: caseIdValue
-                    }
-                });
-                return;
-            }
-
-            // ---------------------------------------------------------
-            // Load Support Case
-            // ---------------------------------------------------------
-
-            const caseRec = record.load({
-                type: record.Type.SUPPORT_CASE,
-                id: caseId,
-                isDynamic: false
-            });
-
-            const caseNumber =
-                safeGetValue(caseRec, 'casenumber') || caseId;
-
-            log.debug({
-                title: 'Support Case Loaded',
-                details: {
-                    caseId: caseId,
-                    caseNumber: caseNumber,
-                    caseTitle: safeGetValue(caseRec, 'title'),
-                    company: safeGetValue(caseRec, 'company'),
-                    caseStatus: safeGetValue(caseRec, 'status')
-                }
-            });
-
-            // ---------------------------------------------------------
-            // Validate recipient Employee
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Load recipient Employee
+            // -----------------------------------------------------
 
             const recipientEmployeeRec = record.load({
                 type: record.Type.EMPLOYEE,
@@ -256,161 +240,200 @@ define([
                 isDynamic: false
             });
 
-            const recipientEmail = recipientEmployeeRec.getValue({
-                fieldId: 'email'
-            });
+            const recipientEmail =
+                recipientEmployeeRec.getValue({
+                    fieldId: 'email'
+                });
 
             const recipientName =
                 recipientEmployeeRec.getValue({
                     fieldId: 'entityid'
-                }) ||
-                recipientEmployeeRec.getValue({
-                    fieldId: 'firstname'
+                }) || 'Employee';
+
+            if (!recipientEmail) {
+                log.error({
+                    title:
+                        'Recipient Employee Has No Email',
+                    details: {
+                        employeeId:
+                            RECIPIENT_EMPLOYEE_ID
+                    }
                 });
+                return;
+            }
 
             log.debug({
-                title: 'Recipient Employee',
+                title: 'Email Recipient',
                 details: {
-                    employeeId: RECIPIENT_EMPLOYEE_ID,
+                    employeeId:
+                        RECIPIENT_EMPLOYEE_ID,
                     employeeName: recipientName,
                     employeeEmail: recipientEmail
                 }
             });
 
-            if (!recipientEmail) {
-                log.error({
-                    title: 'Recipient Employee Has No Email',
-                    details:
-                        'Employee internal ID ' +
-                        RECIPIENT_EMPLOYEE_ID +
-                        ' does not have an email address.'
-                });
-                return;
-            }
-
-            // ---------------------------------------------------------
-            // Load XML template
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Load the XML template file
+            // -----------------------------------------------------
 
             const templateFile = file.load({
                 id: TEMPLATE_FILE_ID
             });
 
-            const templateContent = templateFile.getContents();
+            const templateContent =
+                templateFile.getContents();
 
             if (!templateContent) {
                 log.error({
                     title: 'Empty XML Template',
-                    details:
-                        'Template file ' +
-                        TEMPLATE_FILE_ID +
-                        ' does not contain XML content.'
+                    details: {
+                        templateFileId:
+                            TEMPLATE_FILE_ID,
+                        templateName:
+                            templateFile.name
+                    }
                 });
                 return;
             }
 
             const templateVariables =
-                templateContent.match(/\$\{[^}]+\}/g) || [];
+                templateContent.match(
+                    /\$\{[^}]+\}/g
+                ) || [];
 
             log.debug({
-                title: 'XML Template Information',
+                title: 'Task XML Template Information',
                 details: {
                     templateId: TEMPLATE_FILE_ID,
                     templateName: templateFile.name,
-                    templateSize: templateContent.length,
-                    variables: templateVariables.slice(0, 100)
+                    templateSize:
+                        templateContent.length,
+
+                    usesRecordAlias:
+                        templateContent.indexOf(
+                            '${record.'
+                        ) !== -1,
+
+                    usesTaskAlias:
+                        templateContent.indexOf(
+                            '${task.'
+                        ) !== -1,
+
+                    usesCaseAlias:
+                        templateContent.indexOf(
+                            '${case.'
+                        ) !== -1,
+
+                    usesServiceOrderAlias:
+                        templateContent.indexOf(
+                            '${serviceOrder.'
+                        ) !== -1,
+
+                    variables:
+                        templateVariables.slice(0, 100)
                 }
             });
 
-            // ---------------------------------------------------------
-            // Render merged XML for debugging
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Generate a merged XML preview for testing
+            // -----------------------------------------------------
 
             try {
-                const previewRenderer = createReportRenderer(
-                    templateContent,
-                    taskRec,
-                    caseRec
-                );
+                const previewRenderer =
+                    createTaskRenderer(
+                        templateContent,
+                        taskRec
+                    );
 
-                const renderedXml = previewRenderer.renderAsString();
+                const renderedXml =
+                    previewRenderer.renderAsString();
 
                 log.debug({
-                    title: 'Rendered XML Preview',
-                    details: renderedXml
-                        ? renderedXml.substring(0, 3900)
-                        : 'Rendered XML was empty.'
+                    title: 'Rendered Task XML Preview',
+                    details: JSON.stringify(
+                        renderedXml.substring(
+                            0,
+                            3900
+                        )
+                    )
                 });
 
             } catch (previewError) {
                 log.error({
-                    title: 'Rendered XML Preview Error',
+                    title:
+                        'Rendered Task XML Preview Error',
                     details: {
-                        name: previewError.name,
-                        message: previewError.message
+                        name:
+                            previewError.name || '',
+                        message:
+                            previewError.message ||
+                            String(previewError),
+                        stack:
+                            previewError.stack || ''
                     }
                 });
             }
 
-            // ---------------------------------------------------------
-            // Generate PDF
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Render the Task PDF
+            // -----------------------------------------------------
 
-            const pdfRenderer = createReportRenderer(
-                templateContent,
-                taskRec,
-                caseRec
-            );
+            const pdfRenderer =
+                createTaskRenderer(
+                    templateContent,
+                    taskRec
+                );
 
-            const pdfFile = pdfRenderer.renderAsPdf();
+            const pdfFile =
+                pdfRenderer.renderAsPdf();
 
             pdfFile.name =
-                'Case_Service_Report_' +
-                caseNumber +
-                '_Task_' +
+                'Task_Service_Report_' +
                 taskId +
                 '.pdf';
 
             log.audit({
-                title: 'PDF Generated',
+                title: 'Task Service Report PDF Generated',
                 details: {
                     taskId: taskId,
-                    caseId: caseId,
-                    caseNumber: caseNumber,
+                    taskTitle: taskTitle,
                     pdfName: pdfFile.name,
                     pdfSize: pdfFile.size
                 }
             });
 
-            // ---------------------------------------------------------
-            // Send email using Employee internal ID
-            // ---------------------------------------------------------
+            // -----------------------------------------------------
+            // Email the PDF
+            // -----------------------------------------------------
 
             email.send({
                 author: SENDER_EMPLOYEE_ID,
 
-                // Recipient is an Employee internal ID
+                // Employee internal ID
                 recipients: RECIPIENT_EMPLOYEE_ID,
 
                 subject:
-                    'Case Service Report - Case #' +
-                    caseNumber,
+                    'Task Service Report - ' +
+                    taskTitle,
 
                 body:
                     'Hi ' +
-                    (recipientName || '') +
+                    recipientName +
                     ',\n\n' +
-                    'Please find attached the service report for Case #' +
-                    caseNumber +
-                    '.\n\n' +
-                    'Task Internal ID: ' +
+                    'Please find attached the service report ' +
+                    'for the following Task:\n\n' +
+                    'Task ID: ' +
                     taskId +
                     '\n' +
-                    'Support Case Internal ID: ' +
-                    caseId +
+                    'Task Title: ' +
+                    taskTitle +
+                    '\n' +
+                    'Customer: ' +
+                    (taskCompanyText || '') +
                     '\n\n' +
-                    'The report was generated automatically after the ' +
-                    'Task was completed and the customer signature was captured.' +
+                    'The report was generated automatically ' +
+                    'after the Task was completed and the ' +
+                    'customer signature was captured.' +
                     '\n\nThank you.',
 
                 attachments: [
@@ -419,25 +442,31 @@ define([
             });
 
             log.audit({
-                title: 'Service Report Email Sent',
+                title:
+                    'Task Service Report Email Sent',
                 details: {
                     taskId: taskId,
-                    caseId: caseId,
-                    caseNumber: caseNumber,
-                    recipientEmployeeId: RECIPIENT_EMPLOYEE_ID,
-                    recipientEmail: recipientEmail,
-                    senderEmployeeId: SENDER_EMPLOYEE_ID,
+                    taskTitle: taskTitle,
+                    recipientEmployeeId:
+                        RECIPIENT_EMPLOYEE_ID,
+                    recipientEmail:
+                        recipientEmail,
+                    senderEmployeeId:
+                        SENDER_EMPLOYEE_ID,
                     pdfName: pdfFile.name
                 }
             });
 
-        } catch (e) {
+        } catch (error) {
             log.error({
-                title: 'Service Report afterSubmit Error',
+                title:
+                    'Task Service Report afterSubmit Error',
                 details: {
-                    name: e.name || '',
-                    message: e.message || String(e),
-                    stack: e.stack || ''
+                    name: error.name || '',
+                    message:
+                        error.message ||
+                        String(error),
+                    stack: error.stack || ''
                 }
             });
         }
