@@ -1,41 +1,22 @@
 /**
+
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
- *
- * Fires on the Task record. When a task is marked Complete and has a
- * customer signature, loads the related Support Case, gathers the case's
- * tasks / labor / parts data, renders the Case Service Report PDF using
- * the same XML template as the "Report" button, and emails it out.
  */
-define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
-    (record, render, email, file, search, log) => {
+define(['N/record', 'N/render', 'N/email', 'N/file', 'N/log'],
+    (record, render, email, file, log) => {
 
-        // ---- Template file (File Cabinet internal ID of the .xml template) ----
         const TEMPLATE_FILE_ID = 33686;
 
-        // ---- Email sending ----
-        const SENDER_ID = 9710; // TODO: confirm this is a valid employee internal ID with email send permission
+        const SENDER_ID = 9710; // TODO: replace with a real internal ID
 
-        // TESTING ONLY: hardcoded recipient. Swap for the real field once validated in prod.
+        const CASE_LINK_FIELD_ID = 'custevent_bc_related_case'; // TODO: confirm
+
+        const STATUS_FIELD_ID = 'status';               // TODO: confirm
+        const STATUS_SUBMITTED_VALUE = 'COMPLETE';       // TODO: confirm
+
+        // TESTING: hardcoded recipient while custevent_bc_fsm_cust_email check is off
         const TEST_EMAIL = 'dhruv.soni@bluecollar.cloud';
-
-        // ---- Field IDs on the TASK record ----
-        const STATUS_FIELD_ID = 'status';
-        const STATUS_SUBMITTED_VALUE = 'COMPLETE';     // TODO: confirm the exact status value/id used on this record
-        const SIGNATURE_FIELD_ID = 'custevent_nx_customer_signature';
-
-        // Body field on the TASK record itself (used with getValue to read the linked case id)
-        const CASE_LINK_FIELD_ID = 'supportcase';
-
-        // Search JOIN name used when *filtering a search* by case (NOT the same as the body
-        // field id above — NetSuite names this join after the target record type).
-        // Confirmed from the vendor's own config: filters: ["case.internalid", ...]
-        const CASE_JOIN_ID = 'case';
-
-        // ---- Field IDs used to pull related records for the report ----
-        const SO_CASE_LINK_FIELD_ID = 'custbody_nx_case';   // Sales Order body field linking a line to the case
-        const SO_TASK_LINK_FIELD_ID = 'custcol_nx_task';    // Sales Order column field linking a line to a task
-        const TIME_TASK_LINK_FIELD_ID = 'custcol_nx_task';  // Time Bill column field linking an entry to a task
 
         // -------------------------------------------------------------------------
 
@@ -49,86 +30,47 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
 
                 const newRec = context.newRecord;
 
-                // ---- Condition 1: Task status is Complete ----
+                // ---- Condition 1: Task status is Submitted/Completed ----
                 const status = newRec.getValue({ fieldId: STATUS_FIELD_ID });
                 if (status !== STATUS_SUBMITTED_VALUE) {
-                    log.debug('Skip', 'Task ' + newRec.id + ' status is "' + status + '", not complete');
+                    log.debug('Skip', 'Task ' + newRec.id + ' status is "' + status + '", not submitted/completed');
                     return;
                 }
 
                 // ---- Condition 2: Customer signature must be populated ----
-                const signature = newRec.getValue({ fieldId: SIGNATURE_FIELD_ID });
+                const signature = newRec.getValue({ fieldId: 'custevent_nx_customer_signature' });
                 if (!signature) {
                     log.debug('Skip', 'Task ' + newRec.id + ' has no customer signature yet');
                     return;
                 }
 
-                // TESTING: hardcoded recipient. Re-add the real email-field check once confirmed
-                // (e.g. skip if getValue({fieldId:'custevent_bc_fsm_cust_email'}) is empty).
+                // TESTING: hardcoded recipient (remove once condition 3 is restored above)
                 const reportEmail = TEST_EMAIL;
 
-                // ---- Get the related Support Case ----
+                // ---- Get the related Support Case (mcvac work order) ----
                 const caseId = newRec.getValue({ fieldId: CASE_LINK_FIELD_ID });
                 if (!caseId) {
                     log.error('No case found', 'Task ' + newRec.id + ' has no related case in field ' + CASE_LINK_FIELD_ID);
                     return;
                 }
 
-                // ---- Load the case record (drives "case.*" in the template) ----
+                // ---- Load the case record (used as the data source for the template) ----
                 const caseRec = record.load({
                     type: record.Type.SUPPORT_CASE,
-                    id: caseId,
-                    isDynamic: false
+                    id: caseId
                 });
 
-                // ---- Gather related data the template needs ----
-                const tasks = getCaseTasks(caseId);
-                const taskIds = tasks.map((t) => t.getValue({ name: 'internalid' }));
-                const salesorder = getCaseSalesOrderLines(caseId);
-                const times = getTaskTimeBills(taskIds);
-
-                // TODO: confirm the asset link field on the case, then load it here.
-                // Left empty so the "Site Details" section prints blank instead of erroring.
-                const asset = {};
-
-                // TODO: confirm the checklist record types (install/repair/maintenance/uninstall)
-                // and their case-link field, then run equivalent searches here.
-                const install = [];
-                const repair = [];
-                const maintenance = [];
-                const uninstall = [];
-
-                // TODO: confirm how images are attached to the case (file field, sublist, or
-                // related custom record) and build [{url, description}, ...] here — then wire
-                // it in below alongside 'asset' once you have real search results for it.
-
-                // ---- Load the XML template ----
+                // ---- Load the XML template from the file cabinet ----
                 const templateFile = file.load({ id: TEMPLATE_FILE_ID });
+                const templateContent = templateFile.getContents();
 
-                // NetSuite's addCustomDataSource (format OBJECT/JSON) only accepts a top-level
-                // JSON *object* ({...}), never a bare array ([...]) — that's exactly what
-                // install/repair/maintenance/uninstall/image are (lists), so they can't go
-                // through addCustomDataSource while they're just empty placeholders. Instead,
-                // define them as FreeMarker assigns directly in front of the template content.
-                // These directives render zero visible output, so the leading <?xml ...?>
-                // declaration is still the first thing the PDF engine sees.
-                const stubbedListAssigns =
-                    '<#assign install = [] />' +
-                    '<#assign repair = [] />' +
-                    '<#assign maintenance = [] />' +
-                    '<#assign uninstall = [] />' +
-                    '<#assign image = [] />';
-
-                // ---- Render the PDF ----
+                // ---- Render the template + case data into a PDF ----
                 const renderer = render.create();
-                renderer.templateContent = stubbedListAssigns + templateFile.getContents();
-
-                renderer.addRecord({ templateName: 'case', record: caseRec });
-                renderer.addSearchResults({ templateName: 'tasks', searchResult: tasks });
-                renderer.addSearchResults({ templateName: 'salesorder', searchResult: salesorder });
-                renderer.addSearchResults({ templateName: 'times', searchResult: times });
-                // 'asset' is a single object ({}), so OBJECT format is fine here.
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'asset', data: asset });
+                renderer.templateContent = templateContent;
+                renderer.addRecord({
+                    templateName: 'record',
+                    record: caseRec
+                });
 
                 const pdfFile = renderer.renderAsPdf();
                 pdfFile.name = 'CaseReport_' + caseId + '.pdf';
@@ -154,86 +96,6 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
                 log.error('afterSubmit error', (e.message || e) + (e.stack ? ' | ' + e.stack : ''));
             }
         };
-
-        // -------------------------------------------------------------------------
-        // Data helpers
-        // -------------------------------------------------------------------------
-
-        // Standard Task records linked to this case, via the "case" join (NOT the
-        // "supportcase" body field name — that name isn't valid as a search filter here).
-        function getCaseTasks(caseId) {
-            const results = [];
-            const taskSearch = search.create({
-                type: search.Type.TASK,
-                filters: [
-                    search.createFilter({
-                        name: 'internalid',
-                        join: CASE_JOIN_ID,
-                        operator: search.Operator.ANYOF,
-                        values: caseId
-                    })
-                ],
-                columns: [
-                    'internalid',
-                    'custevent_nx_start_date',
-                    'custevent_nx_start_time',
-                    'assigned',
-                    'custevent_nx_task_type',
-                    'custevent_nx_task_team',
-                    'message',
-                    'custevent_nx_actions_taken',
-                    'custevent_bc_fsm_tech_name',
-                    'custevent_nx_customer_name',
-                    'custevent_nx_technician_signature',
-                    'custevent_nx_customer_signature'
-                ]
-            });
-            taskSearch.run().each((r) => { results.push(r); return true; });
-            return results;
-        }
-
-        // Sales Order lines linked to this case (mainline = F, i.e. item lines only)
-        function getCaseSalesOrderLines(caseId) {
-            const results = [];
-            const soSearch = search.create({
-                type: search.Type.SALES_ORDER,
-                filters: [
-                    ['mainline', 'is', 'F'],
-                    'AND',
-                    [SO_CASE_LINK_FIELD_ID, 'anyof', caseId]
-                ],
-                columns: [
-                    'quantity',
-                    'item',
-                    'memo',
-                    SO_TASK_LINK_FIELD_ID
-                ]
-            });
-            soSearch.run().each((r) => { results.push(r); return true; });
-            return results;
-        }
-
-        // Time Bill entries for the given set of task internal IDs
-        function getTaskTimeBills(taskIds) {
-            if (!taskIds || taskIds.length === 0) return [];
-            const results = [];
-            const timeSearch = search.create({
-                type: search.Type.TIME_BILL,
-                filters: [[TIME_TASK_LINK_FIELD_ID, 'anyof', taskIds]],
-                columns: [
-                    'date',
-                    'employee',
-                    'item',
-                    'custcol_nx_time_start',
-                    'custcol_bc_fsm_arrive_site',
-                    'custcol_bc_fsm_leave_site',
-                    'custcol_nx_time_end',
-                    TIME_TASK_LINK_FIELD_ID
-                ]
-            });
-            timeSearch.run().each((r) => { results.push(r); return true; });
-            return results;
-        }
 
         return { afterSubmit };
     });
