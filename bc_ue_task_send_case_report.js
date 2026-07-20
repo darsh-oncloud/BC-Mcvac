@@ -110,9 +110,9 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
                 renderer.templateContent = templateFile.getContents();
 
                 renderer.addRecord({ templateName: 'case', record: caseRec });
-                renderer.addSearchResults({ templateName: 'tasks', searchResults: tasks });
-                renderer.addSearchResults({ templateName: 'salesorder', searchResults: salesorder });
-                renderer.addSearchResults({ templateName: 'times', searchResults: times });
+                renderer.addSearchResults({ templateName: 'tasks', searchResult: tasks });
+                renderer.addSearchResults({ templateName: 'salesorder', searchResult: salesorder });
+                renderer.addSearchResults({ templateName: 'times', searchResult: times });
                 renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'asset', data: asset });
                 renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'install', data: install });
                 renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'repair', data: repair });
