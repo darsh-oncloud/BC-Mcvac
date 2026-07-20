@@ -23,7 +23,14 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
         const STATUS_FIELD_ID = 'status';
         const STATUS_SUBMITTED_VALUE = 'COMPLETE';     // TODO: confirm the exact status value/id used on this record
         const SIGNATURE_FIELD_ID = 'custevent_nx_customer_signature';
-        const CASE_LINK_FIELD_ID = 'supportcase'; // TODO: confirm — must match the field the vendor searches as "case.internalid"
+
+        // Body field on the TASK record itself (used with getValue to read the linked case id)
+        const CASE_LINK_FIELD_ID = 'supportcase';
+
+        // Search JOIN name used when *filtering a search* by case (NOT the same as the body
+        // field id above — NetSuite names this join after the target record type).
+        // Confirmed from the vendor's own config: filters: ["case.internalid", ...]
+        const CASE_JOIN_ID = 'case';
 
         // ---- Field IDs used to pull related records for the report ----
         const SO_CASE_LINK_FIELD_ID = 'custbody_nx_case';   // Sales Order body field linking a line to the case
@@ -142,12 +149,20 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
         // Data helpers
         // -------------------------------------------------------------------------
 
-        // Standard Task records linked to this case
+        // Standard Task records linked to this case, via the "case" join (NOT the
+        // "supportcase" body field name — that name isn't valid as a search filter here).
         function getCaseTasks(caseId) {
             const results = [];
             const taskSearch = search.create({
                 type: search.Type.TASK,
-                filters: [[CASE_LINK_FIELD_ID, 'anyof', caseId]],
+                filters: [
+                    search.createFilter({
+                        name: 'internalid',
+                        join: CASE_JOIN_ID,
+                        operator: search.Operator.ANYOF,
+                        values: caseId
+                    })
+                ],
                 columns: [
                     'internalid',
                     'custevent_nx_start_date',
