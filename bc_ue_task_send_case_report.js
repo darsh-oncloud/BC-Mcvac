@@ -99,26 +99,36 @@ define(['N/record', 'N/render', 'N/email', 'N/file', 'N/search', 'N/log'],
                 const uninstall = [];
 
                 // TODO: confirm how images are attached to the case (file field, sublist, or
-                // related custom record) and build [{url, description}, ...] here.
-                const images = [];
+                // related custom record) and build [{url, description}, ...] here — then wire
+                // it in below alongside 'asset' once you have real search results for it.
 
                 // ---- Load the XML template ----
                 const templateFile = file.load({ id: TEMPLATE_FILE_ID });
 
+                // NetSuite's addCustomDataSource (format OBJECT/JSON) only accepts a top-level
+                // JSON *object* ({...}), never a bare array ([...]) — that's exactly what
+                // install/repair/maintenance/uninstall/image are (lists), so they can't go
+                // through addCustomDataSource while they're just empty placeholders. Instead,
+                // define them as FreeMarker assigns directly in front of the template content.
+                // These directives render zero visible output, so the leading <?xml ...?>
+                // declaration is still the first thing the PDF engine sees.
+                const stubbedListAssigns =
+                    '<#assign install = [] />' +
+                    '<#assign repair = [] />' +
+                    '<#assign maintenance = [] />' +
+                    '<#assign uninstall = [] />' +
+                    '<#assign image = [] />';
+
                 // ---- Render the PDF ----
                 const renderer = render.create();
-                renderer.templateContent = templateFile.getContents();
+                renderer.templateContent = stubbedListAssigns + templateFile.getContents();
 
                 renderer.addRecord({ templateName: 'case', record: caseRec });
                 renderer.addSearchResults({ templateName: 'tasks', searchResult: tasks });
                 renderer.addSearchResults({ templateName: 'salesorder', searchResult: salesorder });
                 renderer.addSearchResults({ templateName: 'times', searchResult: times });
+                // 'asset' is a single object ({}), so OBJECT format is fine here.
                 renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'asset', data: asset });
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'install', data: install });
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'repair', data: repair });
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'maintenance', data: maintenance });
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'uninstall', data: uninstall });
-                renderer.addCustomDataSource({ format: render.DataSource.OBJECT, alias: 'image', data: images });
 
                 const pdfFile = renderer.renderAsPdf();
                 pdfFile.name = 'CaseReport_' + caseId + '.pdf';
